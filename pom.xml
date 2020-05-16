@@ -1,0 +1,362 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <name>Camel Post To Escenic</name>
+  <description>Camel Post To Escenic Plugin</description>
+  <groupId>com.atex.plugins</groupId>
+  <artifactId>camel-post-to-escenic</artifactId>
+  <version>0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <parent>
+    <groupId>com.polopoly</groupId>
+    <artifactId>public</artifactId>
+    <version>10.18.2-fp1</version>
+    <relativePath />
+  </parent>
+
+  <organization>
+    <name>Atex</name>
+    <url>http://www.atex.com</url>
+  </organization>
+
+  <distributionManagement>
+    <repository>
+      <uniqueVersion>false</uniqueVersion>
+      <id>polopoly-pd-plugins</id>
+      <name>Polopoly Product Plugins</name>
+      <url>http://maven.polopoly.com/nexus/content/repositories/polopoly-pd-plugins</url>
+      <layout>default</layout>
+    </repository>
+    <snapshotRepository>
+      <uniqueVersion>false</uniqueVersion>
+      <id>polopoly-pd-plugins-snapshots</id>
+      <name>Polopoly Product Plugins Snapshots</name>
+      <url>http://maven.polopoly.com/nexus/content/repositories/polopoly-pd-plugins-snapshots</url>
+      <layout>default</layout>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <licenses>
+    <license>
+      <name>Atex Polopoly Source Code License</name>
+      <url>http://support.polopoly.com/confluence/display/GREENHOUSE/APSCL</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>products</id>
+      <name>Polopoly Products</name>
+      <email>support.polopoly@atex.com</email>
+      <organization>Atex</organization>
+      <organizationUrl>http://www.atex.com</organizationUrl>
+    </developer>
+  </developers>
+
+  <issueManagement>
+    <system>JIRA</system>
+    <url>http://support.atex.com/jira/browse/GONG</url>
+  </issueManagement>
+
+  <scm>
+    <developerConnection>scm:git:git@github.com:atex-community-plugins/camel-post-to-escenic.git</developerConnection>
+    <url>https://github.com/atex-community-plugins/camel-post-to-escenic</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <polopoly.version>10.18.2-fp1</polopoly.version>
+    <camel.version>2.13.2</camel.version>
+    <spring.version>4.1.0.RELEASE</spring.version>
+    <desk.version>2.11.1</desk.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.atex.gong</groupId>
+        <artifactId>onecms-custom-source</artifactId>
+        <version>${polopoly.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.atex</groupId>
+        <artifactId>module-desk</artifactId>
+        <version>${desk.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.polopoly</groupId>
+        <artifactId>polopoly</artifactId>
+        <version>${polopoly.version}</version>
+        <classifier>api</classifier>
+        <type>jar</type>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+
+    <dependency>
+      <groupId>com.polopoly</groupId>
+      <artifactId>polopoly</artifactId>
+      <version>${polopoly.version}</version>
+      <classifier>api</classifier>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.persistence</groupId>
+      <artifactId>eclipselink</artifactId>
+      <version>2.4.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.atex</groupId>
+      <artifactId>module-desk</artifactId>
+      <version>${desk.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.polopoly</groupId>
+      <artifactId>polopoly</artifactId>
+      <version>${polopoly.version}</version>
+      <classifier>api</classifier>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>com.atex.adm.packaged</groupId>
+      <artifactId>onecms-custom-beans</artifactId>
+      <version>2.5.0-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.atex.adm.packaged</groupId>
+      <artifactId>onecms-custom-source</artifactId>
+      <version>2.5.0-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-core</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-test</artifactId>
+      <version>${camel.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-imaging</artifactId>
+      <version>1.0-alpha1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+
+    The JAXB dependency (jaxb-impl) is necessary in order to
+    be able to run the Nitro Integration Server with Java 7.
+    This is due to a bug in the JAXB version included in the
+    JDK. The dependency will be needed until the fix for JAXB
+    issue http://java.net/jira/browse/JAXB-860 has been
+    merged to the JDK.
+
+    -->
+
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.geronimo.specs</groupId>
+      <artifactId>geronimo-ejb_2.1_spec</artifactId>
+      <version>1.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+     <groupId>org.slf4j</groupId>
+     <artifactId>slf4j-log4j12</artifactId>
+     <scope>test</scope>
+    </dependency>
+	  <dependency>
+		  <groupId>com.github.tomakehurst</groupId>
+		  <artifactId>wiremock</artifactId>
+		  <version>1.57</version>
+		  <scope>test</scope>
+	  </dependency>
+
+    <dependency>
+      <groupId>com.jcraft</groupId>
+      <artifactId>jsch</artifactId>
+      <version>0.1.55</version>
+    </dependency>
+
+  </dependencies>
+  <repositories>
+<!--    <repository>-->
+<!--      <id>EclipseLink Repo</id>-->
+<!--      <url>http://www.eclipse.org/downloads/download.php?r=1&amp;nf=1&amp;file=/rt/eclipselink/maven.repo</url>-->
+<!--    </repository>-->
+    <repository>
+      <id>EclipseLink Repo</id>
+      <url>http://download.eclipse.org/rt/eclipselink/maven.repo</url>
+    </repository>
+  </repositories>
+  <build>
+
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.12</version>
+        <configuration>
+          <skipTests>true</skipTests>
+        </configuration>
+      </plugin>
+
+      <!-- this is needed to generate the variants xml -->
+      <plugin>
+        <groupId>com.atex.onecms</groupId>
+        <artifactId>content-api-annotations-maven-plugin</artifactId>
+        <version>1.0.2</version>
+        <executions>
+          <execution>
+            <id>process-content-api-annotations</id>
+            <goals>
+              <goal>process-content-api-annotations</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- this is needed to import the variants xml -->
+      <plugin>
+        <groupId>com.polopoly.extensions</groupId>
+        <artifactId>p-maven-plugin</artifactId>
+        <version>${polopoly.version}</version>
+        <executions>
+          <execution>
+            <id>pack-content</id>
+            <goals>
+              <goal>dot-content-to-xml</goal>
+              <goal>pack</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <contentDataFileResources>
+                <!-- Uncomment to include javascript source files on plugin files
+                  content. <files> <directory>${project.basedir}/src/main/javascript</directory>
+                  <includes> <include>**/*.js</include> </includes> </files> -->
+                <!-- Uncomment to include css source files on plugin files content.
+                  <files> <directory>${project.basedir}/src/main/css</directory> <includes>
+                  <include>**/*.css</include> </includes> </files> -->
+                <files>
+                  <directory>${project.basedir}/src/main/contentfiles</directory>
+                  <includes>
+                    <include>**</include>
+                  </includes>
+                </files>
+                <files>
+                  <directory>${project.basedir}/src/main/content</directory>
+                  <includes>
+                    <include>**</include>
+                  </includes>
+                </files>
+                <!-- Remove this source directory if not used -->
+                <!--<files> -->
+                <!--<directory>${project.build.directory}/generated-contentfiles</directory> -->
+                <!--<includes> -->
+                <!--<include>**</include> -->
+                <!--</includes> -->
+                <!--</files> -->
+              </contentDataFileResources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>deploy</id>
+
+      <distributionManagement>
+        <repository>
+          <name>Polopoly PD Plugins</name>
+          <id>polopoly-pd-plugins</id>
+          <url>http://maven.polopoly.com/nexus/content/repositories/polopoly-pd-plugins</url>
+        </repository>
+
+        <snapshotRepository>
+          <name>Polopoly PD Plugins Snapshots</name>
+          <id>polopoly-pd-plugins-snapshots</id>
+          <url>http://maven.polopoly.com/nexus/content/repositories/polopoly-pd-plugins-snapshots</url>
+        </snapshotRepository>
+      </distributionManagement>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-site-plugin</artifactId>
+            <version>3.3</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>IT</id>
+      <activation>
+        <property>
+          <name>it</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>2.19</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>

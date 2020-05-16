@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-fragment xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:webfragment="http://java.sun.com/xml/ns/javaee/web-fragment_3_0.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-fragment_3_0.xsd" metadata-complete="true" version="3.0">
+  <name>camel_post_to_escenic</name>
+  <ordering>
+    <after>
+      <name>p_webapp_onecms</name>
+    </after>
+  </ordering>
+  <context-param>
+    <param-name>pApplicationEventsPackages_camel_post_to_escenic_init</param-name>
+    <param-value>com.atex.onecms.app.dam.integration.camel.component.escenic</param-value>
+  </context-param>
+
+</web-fragment>

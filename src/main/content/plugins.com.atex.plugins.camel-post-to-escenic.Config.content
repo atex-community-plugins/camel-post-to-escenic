@@ -1,0 +1,9 @@
+id:.
+major:AppConfig
+inputtemplate:com.atex.plugins.camel-post-to-escenic.Configuration
+securityparent:p.siteengine.Configuration.d
+component:polopoly.Content:name:Camel Post To Escenic Configuration
+component:user:value:
+component:password:value:
+component:apiUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/section/2/content-items
+component:binaryUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/binary
