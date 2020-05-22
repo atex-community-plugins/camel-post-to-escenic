@@ -6,6 +6,10 @@ package com.atex.onecms.app.dam.integration.camel.component.escenic;
  */
 public class EscenicImage extends EscenicContent {
 
+	public static final String IMAGE_MODEL_CONTENT_TYPE = "/content-type/picture";
+	public static final String IMAGE_MODEL_CONTENT_SUMMARY = "/content-summary/picture";
+	protected static final String IMAGE_TYPE = "image";
+
 	private String title;
 
 	private boolean topElement = false;

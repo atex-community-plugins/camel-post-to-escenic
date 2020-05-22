@@ -7,3 +7,6 @@ component:user:value:
 component:password:value:
 component:apiUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/section/2/content-items
 component:binaryUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/binary
+component:webSectionDimension:value:department.categorydimension.inm
+component:modelUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/publication/independent/model
+

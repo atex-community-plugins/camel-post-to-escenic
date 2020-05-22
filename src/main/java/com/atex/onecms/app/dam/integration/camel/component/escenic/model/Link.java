@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import java.util.Objects;
 
 /**
  *
@@ -14,6 +15,20 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
  */
 @XmlRootElement
 public class Link {
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Link link = (Link) o;
+		return Objects.equals(type, link.type) &&
+			Objects.equals(href, link.href) &&
+			Objects.equals(identifier, link.identifier);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(type, href, identifier);
+	}
 
 	private String rel;
 	private String type;

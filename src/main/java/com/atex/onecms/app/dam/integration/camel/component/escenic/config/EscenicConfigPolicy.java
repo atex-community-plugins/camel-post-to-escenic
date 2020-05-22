@@ -15,6 +15,11 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String PASSWORD = "password";
     protected static final String API_URL = "apiUrl";
     protected static final String BINARY_URL = "binaryUrl";
+    protected static final String MODEL_URL = "modelUrl";
+    protected static final String WEB_SECTION_DIMENSION = "webSectionDimension";
+    protected static final String MAX_IMAGE_WIDTH = "maxImageWidth";
+    protected static final String MAX_IMAGE_HEIGHT = "maxImageHeight";
+
 
     @Override
     protected void initSelf() {
@@ -36,13 +41,36 @@ public class EscenicConfigPolicy extends ContentPolicy{
     public String getBinaryUrl() throws CMException {
         return ((SingleValuePolicy) getChildPolicy(BINARY_URL)).getValue();
     }
+
+    public String getModelUrl() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(MODEL_URL)).getValue();
+    }
+
+    public String getWebSectionDimension() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(WEB_SECTION_DIMENSION)).getValue();
+    }
+
+    public String getImageMaxWidth() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(MAX_IMAGE_WIDTH)).getValue();
+    }
+
+    public String getImageMaxHeigth() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(MAX_IMAGE_HEIGHT)).getValue();
+    }
+
+
+
     public EscenicConfig getConfig() throws CMException {
 
         EscenicConfig bean = new EscenicConfig();
         bean.setUsername(getUsername());
         bean.setPassword(getPassword());
+        bean.setModelUrl(getModelUrl());
+        bean.setWebSectionDimension(getWebSectionDimension());
         bean.setApiUrl(getApiUrl());
         bean.setBinaryUrl(getBinaryUrl());
+        bean.setMaxImgHeight(getImageMaxHeigth());
+        bean.setMaxImgWidth(getImageMaxWidth());
         return bean;
     }
 }

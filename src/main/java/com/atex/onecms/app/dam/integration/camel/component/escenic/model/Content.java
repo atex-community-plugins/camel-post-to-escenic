@@ -9,6 +9,8 @@ import javax.xml.bind.annotation.XmlElement;
  */
 public class Content {
 
+	public static final String TYPE = "application/vnd.vizrt.payload+xml";
+
 	private String type;
 	private Payload payload;
 

@@ -83,6 +83,10 @@ import com.atex.onecms.content.IdUtil;
 
 		public String processSmartEmbedToHtml(final String html, final Consumer<Element> c) {
 			final Document doc = processSmartEmbed(html, c);
+
+			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+			String documentBody = doc.body().html();
+
 			return doc.body().html();
 		}
 

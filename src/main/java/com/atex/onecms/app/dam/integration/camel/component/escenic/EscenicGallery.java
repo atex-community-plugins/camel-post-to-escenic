@@ -8,6 +8,10 @@ import java.util.List;
  * @author jakub
  */
 public class EscenicGallery extends EscenicContent {
+	public static final String GALLERY_MODEL_CONTENT_TYPE = "/content-type/gallery";
+	public static final String GALLERY_MODEL_CONTENT_SUMMARY = "/content-summary/gallery";
+	protected static final String GALLERY_TYPE = "gallery";
+
 	private String thumbnailUrl;
 	private List<EscenicContent> contentList = new ArrayList<>();
 

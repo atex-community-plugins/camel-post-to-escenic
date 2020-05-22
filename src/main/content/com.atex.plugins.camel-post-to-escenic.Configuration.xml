@@ -21,6 +21,23 @@
 			<help>com.atex.plugins.camel-post-to-escenic.binaryUrl.help</help>
 			<param name="inlineHelp">true</param>
 		</field>
+		<field input-template="p.TextInput" name="modelUrl" label="com.atex.plugins.camel-post-to-escenic.modelUrl">
+			<help>com.atex.plugins.camel-post-to-escenic.modelUrl.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
+		<field input-template="p.TextInput" name="webSectionDimension" label="com.atex.plugins.camel-post-to-escenic.webSectionDimension">
+			<help>com.atex.plugins.camel-post-to-escenic.webSectionDimension.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
+		<field input-template="p.TextInput" name="maxImageWidth" label="com.atex.plugins.camel-post-to-escenic.maxImageWidth">
+			<help>com.atex.plugins.camel-post-to-escenic.maxImageWidth.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
+
+		<field input-template="p.TextInput" name="maxImageHeight" label="com.atex.plugins.camel-post-to-escenic.maxImageHeight">
+			<help>com.atex.plugins.camel-post-to-escenic.maxImageHeight.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
 		<content-xml>
 			<contentref group="plugin" name="plugindef">
 				<contentid>

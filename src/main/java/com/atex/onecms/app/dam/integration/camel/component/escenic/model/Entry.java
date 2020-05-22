@@ -19,8 +19,30 @@ public class Entry {
 	private Publication publication;
 	private Control control;
 	private String published;
+	private String expires;
+
+
+	private String available;
 
 	public Entry() {
+	}
+
+	@XmlElement(name = "expires", namespace="http://purl.org/atompub/age/1.0")
+	public String getExpires() {
+		return expires;
+	}
+
+	public void setExpires(String expires) {
+		this.expires = expires;
+	}
+
+	@XmlElement(name = "available", namespace="http://purl.org/dc/terms/")
+	public String getAvailable() {
+		return available;
+	}
+
+	public void setAvailable(String available) {
+		this.available = available;
 	}
 
 	@XmlElement(name = "uri")

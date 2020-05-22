@@ -6,7 +6,8 @@
 		@XmlNs(prefix = "app", namespaceURI = "http://www.w3.org/2007/app"),
 		@XmlNs(prefix = "metadata", namespaceURI = "http://xmlns.escenic.com/2010/atom-metadata"),
 		@XmlNs(prefix = "dcterms", namespaceURI = "http://purl.org/dc/terms/"),
-		@XmlNs(prefix = "vaext", namespaceURI = "http://www.vizrt.com/atom-ext")
+		@XmlNs(prefix = "vaext", namespaceURI = "http://www.vizrt.com/atom-ext"),
+		@XmlNs(prefix = "age", namespaceURI = "http://purl.org/atompub/age/1.0")
 	}
 )
 
