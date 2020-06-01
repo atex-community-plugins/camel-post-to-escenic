@@ -19,7 +19,7 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String WEB_SECTION_DIMENSION = "webSectionDimension";
     protected static final String MAX_IMAGE_WIDTH = "maxImageWidth";
     protected static final String MAX_IMAGE_HEIGHT = "maxImageHeight";
-
+    protected static final String CROPS_MAPPING = "cropsMapping";
 
     @Override
     protected void initSelf() {
@@ -58,7 +58,9 @@ public class EscenicConfigPolicy extends ContentPolicy{
         return ((SingleValuePolicy) getChildPolicy(MAX_IMAGE_HEIGHT)).getValue();
     }
 
-
+    public String getCropsMapping() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(CROPS_MAPPING)).getValue();
+    }
 
     public EscenicConfig getConfig() throws CMException {
 
@@ -71,6 +73,7 @@ public class EscenicConfigPolicy extends ContentPolicy{
         bean.setBinaryUrl(getBinaryUrl());
         bean.setMaxImgHeight(getImageMaxHeigth());
         bean.setMaxImgWidth(getImageMaxWidth());
+        bean.setCropsMapping(getCropsMapping());
         return bean;
     }
 }

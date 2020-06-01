@@ -1,11 +1,9 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.content.ContentId;
-import com.atex.standard.article.SmartEmbedParser;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.net.InternetDomainName;
 import org.apache.commons.lang.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
@@ -83,16 +81,12 @@ import com.atex.onecms.content.IdUtil;
 
 		public String processSmartEmbedToHtml(final String html, final Consumer<Element> c) {
 			final Document doc = processSmartEmbed(html, c);
-
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-			String documentBody = doc.body().html();
-
 			return doc.body().html();
 		}
 
 		public CustomEmbedParser.SmartEmbed createSmartEmbedFromElement(final Element element) {
 			// check if the element have the required attributes
-
 			if (element.hasAttr(DATA_ONECMS_TYPE) && element.hasAttr(DATA_ONECMS_ID)) {
 				final CustomEmbedParser.SmartEmbed embed = new CustomEmbedParser.SmartEmbed();
 				embed.setObjType(element.attr(DATA_ONECMS_TYPE));
@@ -100,8 +94,8 @@ import com.atex.onecms.content.IdUtil;
 				if (element.hasAttr("escenic-id")) {
 					embed.setEscenicId(element.attr("escenic-id").trim());
 				}
-				// try to get an id (the element may have not been created yet).
 
+				// try to get an id (the element may have not been created yet).
 				final String id = element.attr(DATA_ONECMS_ID).trim();
 				if (!Strings.isNullOrEmpty(id)) {
 					try {
@@ -113,7 +107,6 @@ import com.atex.onecms.content.IdUtil;
 				}
 
 				// get the list of all the other data attributes.
-
 				for (final Attribute attribute : element.attributes()) {
 					final String key = attribute.getKey();
 					if (key.equals(DATA_ONECMS_TYPE) || key.equals(DATA_ONECMS_ID)) {
@@ -125,7 +118,6 @@ import com.atex.onecms.content.IdUtil;
 				}
 
 				// finally get the element text
-
 				embed.setContent(element.html());
 
 				return embed;
@@ -175,17 +167,15 @@ import com.atex.onecms.content.IdUtil;
 							e.printStackTrace();
 						}
 					}
+
 					// finally get the element text
-
 					embed.setEmbedCode(element.toString());
-
 					return embed;
 				}
 			}
 
 			return null;
 		}
-
 
 		private String extractSocialNetworkFromUrl(String embedUrl) throws URISyntaxException {
 			if (StringUtils.isNotEmpty(embedUrl)) {

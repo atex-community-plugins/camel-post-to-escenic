@@ -20,6 +20,16 @@ public class EscenicConfig {
 	private String maxImgWidth;
 	private String maxImgHeight;
 
+	public String getCropsMapping() {
+		return cropsMapping;
+	}
+
+	public void setCropsMapping(String cropsMapping) {
+		this.cropsMapping = cropsMapping;
+	}
+
+	private String cropsMapping;
+
 	public String getMaxImgWidth() {
 		return maxImgWidth;
 	}

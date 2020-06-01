@@ -1,17 +1,13 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
 import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.app.dam.util.ImageUtils;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.Content;
-import com.atex.onecms.content.aspects.Aspect;
 import com.atex.onecms.content.files.FileService;
 import com.atex.onecms.image.CropInfo;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
@@ -20,7 +16,6 @@ import com.atex.onecms.image.Rectangle;
 import com.atex.onecms.ws.image.ImageServiceConfiguration;
 import com.atex.onecms.ws.image.ImageServiceConfigurationProvider;
 import com.atex.onecms.ws.image.ImageServiceUrlBuilder;
-import com.google.common.base.CharMatcher;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.HttpFileServiceClient;
 import com.polopoly.cm.policy.PolicyCMServer;
@@ -33,8 +28,6 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -56,8 +49,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	private static int MAX_IMAGE_HEIGHT = 1080;
 	private static double IMAGE_QUALITY = 0.75d;
 
+	protected static final String EDIT_MEDIA_RELATIONSHIP = "edit-media";
 	private String imageServiceUrl;
 
+	private Map<String, String> cropsMapping;
 	private static final Pattern DOUBLE_SLASH_PATTERN = Pattern.compile("/*/");
 	HttpFileServiceClient httpFileServiceClient;
 
@@ -68,6 +63,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);
 		this.httpFileServiceClient = httpFileServiceClient;
 		this.imageServiceUrl = imageServiceUrl;
+		this.cropsMapping = initCrops();
 	}
 
 	public static EscenicImageProcessor getInstance() {
@@ -83,19 +79,45 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	protected EscenicImage processImage(ContentId contentId, EscenicImage escenicImage, DamEngagementUtils utils, List<EscenicContent> escenicContentList, String sectionId) {
+	private Map initCrops() throws RuntimeException {
+		String cropsString = escenicConfig.getCropsMapping();
+		if (StringUtils.isBlank(cropsString)) {
+			throw new RuntimeException("Missing configuration for crop mappings between desk & escenic");
+		}
+
+		try {
+			String[] cropsArray = cropsString.split(",");
+			HashMap<String, String> map = new HashMap();
+			for (String s : cropsArray) {
+				String[] cropDefinition = s.split(":");
+				map.put(cropDefinition[0], cropDefinition[1]);
+			}
+
+			return map;
+
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to process crops mapping from configuration.");
+		}
+	}
+
+	protected EscenicImage processImage(ContentId contentId, EscenicImage escenicImage, DamEngagementUtils utils, List<EscenicContent> escenicContentList, String sectionId, String action) throws EscenicException {
 
 		ContentResult imgCr =  escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
 		if (imgCr != null && imgCr.getStatus().isSuccess()) {
-			//check if the enagement on the image exists?
-			//we'll need to detect the filename used? just in case the user removes and image and uploads a different one for the same desk object..
-			//this could cause a problem on the escenic side if the image was already uploaded (the binary file)
+			OneImageBean oneImageBean = null;
+			try {
+				 oneImageBean = (OneImageBean) escenicUtils.extractContentBean(imgCr);
+
+			} catch (Exception e) {
+				throw new RuntimeException("Failed to convert content result to an image : " + imgCr.getContentId());
+			}
+
 			String existingEscenicLocation = null;
 			try {
 				existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
 			} catch (CMException e) {
-				e.printStackTrace();
+				throw new RuntimeException("Failed to retreive escenic id from engagement for id: " + contentId);
 			}
 
 			boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
@@ -104,69 +126,32 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			Entry escenicImageEntry = null;
 			String existingEscenicId = null;
 			if (isUpdate) {
-				//load image + merge it with existing image and send an update? + process the response?
 				existingEscenicId = extractIdFromLocation(existingEscenicLocation);
 				if (StringUtils.isNotEmpty(existingEscenicId)) {
 
 					try {
 						escenicImageEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 					} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException e) {
-						e.printStackTrace();
+						throw new EscenicException("Failed to generate existing image entry for " + contentId);
 					}
 				}
 			}
-			CloseableHttpResponse response = null;
-			try {
-				response = processImage(imgCr, escenicImageEntry, existingEscenicLocation,  cmServer, escenicConfig, escenicImage, sectionId);
-			} catch (FailedToSendContentToEscenicException e) {
-				e.printStackTrace();
-			}
 
+			CloseableHttpResponse response = processImage(imgCr, escenicImageEntry, existingEscenicLocation,  cmServer, escenicConfig, escenicImage, sectionId);
 
-			if (response != null) {
-				int statusCode = response.getStatusLine().getStatusCode();
-				String escenicLocation = null;
-				String escenicId = null;
-				if (statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_OK ) {
+			EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, utils, imgCr, action);
 
-					try {
-						escenicLocation = retrieveEscenicLocation(response);
-					} catch (IOException | FailedToExtractLocationException e) {
-						e.printStackTrace();
-					}
-
-					escenicId = extractIdFromLocation(escenicLocation);
-				} else if (statusCode == HttpStatus.SC_NO_CONTENT) {
-					escenicLocation = existingEscenicLocation;
-					escenicId = existingEscenicId;
-
-				} else {
-					log.error("The server returned : " + response.getStatusLine() + " when attempting to sendimage id: " + contentId);
-					//throw an error here.
-				}
-
-				final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-				escenicImage.setEscenicId(escenicId);
-				escenicImage.setEscenicLocation(escenicLocation);
-
-				//TODO hack to change the URL from what's provided to a thumbnail url --> alternative is to query for content and read it.
-				escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-
-				List<Link> links = escenicUtils.generateLinks(escenicImage);
-				escenicImage.setLinks(links);
-
-				//atempt to update the engagement
-				processEngagement(contentId,engagement,existingEscenicLocation, utils, imgCr);
-				return escenicImage;
-			}
+			String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+			String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
+			assignProperties(oneImageBean, escenicImage, escenicId, escenicLocation, contentId);
+			return escenicImage;
 		}
 		return null;
 	}
 
 	protected CloseableHttpResponse processImage(ContentResult imgCr, Entry existingImgEntry, String existingEscenicLocation,
 												 PolicyCMServer cmServer, EscenicConfig escenicConfig,
-												 EscenicImage escenicImage, String sectionId) throws FailedToSendContentToEscenicException {
-//		List<CloseableHttpResponse> responses = new ArrayList<>();
+												 EscenicImage escenicImage, String sectionId) throws FailedToSendContentToEscenicException, EscenicResponseException {
 		CloseableHttpResponse response = null;
 		String binaryUrl = escenicConfig.getBinaryUrl();
 		if (StringUtils.isEmpty(binaryUrl)) {
@@ -189,19 +174,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 
 				ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) imgCr.getContent().getAspectData(ImageEditInfoAspectBean.ASPECT_NAME);
-
-				String binaryLocation = null;
-
-					//i.e it's a brand new content that doesn't exist in escenic...
-					//todo this needs to be reworked.
-//					binaryLocation = sendBinary(imgCr.getContent(), oneImageBean, cmServer, binaryUrl, escenicConfig);
-
-
-
-
-				binaryLocation = testSendBinary(imgCr, oneImageBean, cmServer, binaryUrl, escenicConfig, existingImgEntry, imageEditInfoAspectBean);
-
-
+				String binaryLocation = sendBinaryImage(imgCr, oneImageBean, cmServer, binaryUrl, escenicConfig, existingImgEntry, imageEditInfoAspectBean);
 				Entry atomEntry = constructAtomEntryForBinaryImage(oneImageBean, existingImgEntry, imgCr.getContent(), binaryLocation, escenicConfig, imageEditInfoAspectBean);
 				if (existingImgEntry != null) {
 					atomEntry = processExistingImage(existingImgEntry, atomEntry);
@@ -230,7 +203,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			List<Field> newFields = entry.getContent().getPayload().getField();
 			for (Field field : existingFields) {
 				for (Field newField : newFields) {
-					//modify all fields apart binary location.
+					//modify all fields but binary location.
 					if (StringUtils.isNotBlank(field.getName()) && !StringUtils.equalsIgnoreCase(field.getName(), "binary")) {
 						if (StringUtils.equalsIgnoreCase(field.getName(), newField.getName())) {
 							field.setValue(newField.getValue());
@@ -241,45 +214,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
-//			existingEntry.setLink(entry.getLink());
-			List<Link> existingLinks = existingEntry.getLink();
-			List<Link> links = entry.getLink();
-
-			if (existingLinks != null && links != null) {
-				for (Link existinglink : existingLinks) {
-
-					boolean found = false;
-
-					for (Link link : links) {
-						//todo
-						if (StringUtils.equalsIgnoreCase(existinglink.getHref(), link.getHref()) &&
-							StringUtils.equalsIgnoreCase(existinglink.getIdentifier(), link.getIdentifier()) &&
-							StringUtils.equalsIgnoreCase(existinglink.getType(), link.getType())) {
-
-							//it's the same link...
-							found = true;
-						}
-					}
-
-					if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
-						links.add(existinglink);
-
-					}
-				}
-				existingEntry.setLink(links);
-			}
-
-
+			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 			return existingEntry;
 		}
 		return entry;
-	}
-
-	private String clean(String component) {
-		if (component == null) return null;
-
-		return CharMatcher.ASCII.retainFrom(component);
-
 	}
 
 	private void updateMaxImageSize() {
@@ -298,7 +236,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			try {
 				MAX_IMAGE_HEIGHT = Integer.parseInt(h);
 			} catch (NumberFormatException e) {
-				log.warn("Invalid value. Unable to extract max image heigth from config.");
+				log.warn("Invalid value. Unable to extract max image height from config.");
 			}
 		}
 	}
@@ -352,8 +290,6 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			if (statusCode < 200 || statusCode >= 400) {
 				throw new IOException("Resize image failed with status code: " + statusCode);
 			}
-
-
 
 			final int newWidth = Optional.ofNullable(httpResponse.getFirstHeader("X-Rendered-Image-Width"))
 				.map(Header::getValue)
@@ -428,17 +364,14 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return cleanPath;
 	}
 
-	private String testSendBinary(ContentResult imgCr, OneImageBean oneImageBean, PolicyCMServer cmServer, String binaryUrl, EscenicConfig escenicConfig, Entry existingImgEntry, ImageEditInfoAspectBean imageEditInfoAspectBean) {
+	private String sendBinaryImage(ContentResult imgCr, OneImageBean oneImageBean, PolicyCMServer cmServer, String binaryUrl, EscenicConfig escenicConfig,
+								   Entry existingImgEntry, ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
 		String location = null;
 		if (imgCr != null) {
-
 			Content cresultContent = imgCr.getContent();
-
-
 			final FileService fileService = httpFileServiceClient.getFileService();
 
 			FilesAspectBean fab = (FilesAspectBean) cresultContent.getAspectData(FilesAspectBean.ASPECT_NAME);
-//			ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) cresultContent.getAspectData(ImageEditInfoAspectBean.ASPECT_NAME);
 			ImageInfoAspectBean imageInfoAspectBean = (ImageInfoAspectBean) cresultContent.getAspectData(ImageInfoAspectBean.ASPECT_NAME);
 
 			if (imageInfoAspectBean != null) {
@@ -449,59 +382,42 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 					if (fab != null) {
 						Map<String, ContentFileInfo> map = fab.getFiles();
 						if (map != null) {
-							try (final CloseableHttpClient httpclient = HttpClients.custom()
-								.disableAutomaticRetries()
-								.disableCookieManagement()
-								.disableContentCompression()
-								.build()) {
+							try {
 								for (Map.Entry<String, ContentFileInfo> entry : map.entrySet()) {
 									if (entry != null) {
 										ContentFileInfo contentFileInfo = entry.getValue();
 										if (contentFileInfo != null) {
 											if (StringUtils.isNotBlank(contentFileInfo.getFilePath()) && StringUtils.equalsIgnoreCase(contentFileInfo.getFilePath(), imgFilePath)) {
 
-
-												try (InputStream data = getResizedImageStream(
+												InputStream data = getResizedImageStream(
 													escenicUtils.getHttpClient(),
 													imgCr,
 													imageInfoAspectBean,
 													imageEditInfoAspectBean,
 													fileService,
 													contentFileInfo,
-													Subject.NOBODY_CALLER)) {
+													Subject.NOBODY_CALLER);
 
-//												data.available()
 													//only send it if there's no existing entry.
-												if (existingImgEntry == null) {
-													location = sendImage(data, contentFileInfo.getFilePath(), binaryUrl, escenicConfig);
-												}
-
-												} catch (CMException e) {
-													e.printStackTrace();
-												}
+													if (existingImgEntry == null) {
+														location = sendImage(data, contentFileInfo.getFilePath(), binaryUrl);
+													}
 											}
 										}
 									}
 								}
-							} catch (IOException e) {
-								e.printStackTrace();
+							} catch (IOException | CMException e) {
+								throw new RuntimeException("Failed to send binary to escenic" + imgCr.getContentId());
 							}
-
 						}
 					}
 				}
-
 			}
-
 		}
-
-
 		return location;
-
 	}
 
-
-	private String sendImage(InputStream in, String imgExt, String binaryUrl, EscenicConfig escenicConfig) {
+	private String sendImage(InputStream in, String imgExt, String binaryUrl) throws EscenicResponseException {
 		HttpPost request = new HttpPost(binaryUrl);
 		InputStreamEntity entity = escenicUtils.generateImageEntity(in, imgExt);
 		request.setEntity(entity);
@@ -512,26 +428,19 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 		try {
 			CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);
+			int statusCode = result.getStatusLine().getStatusCode();
+			if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_NO_CONTENT) {
 
-
-			//TODO HERE evaluate the response properly... then extract the header
-			System.out.println(result.getStatusLine());
-			//todo probably check the status code?
-			for (Header h : result.getAllHeaders()) {
-				System.out.println(h.getName() + " : " + h.getValue());
-				if (StringUtils.equalsIgnoreCase(h.getName(), "Location")) {
-					return h.getValue();
-//						constructAtomEntryForBinary()
-				}
+				Header header = result.getFirstHeader("Location");
+				return header.getValue();
+			} else {
+				throw new EscenicResponseException("Failed to send the binary to escenic: " + result.getStatusLine());
 			}
-//				return result;
 		} catch (Exception e) {
-			System.out.println("Error :" + e.getMessage());
-			System.out.println("Error :" + e.getCause());
+			throw new EscenicResponseException("Failed to send the binary to escenic: " + e);
 		} finally {
 			request.releaseConnection();
 		}
-		return null;
 	}
 
 	private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean, Entry existingImgEntry, Content cresultContent, String binaryLocation, EscenicConfig escenicConfig, ImageEditInfoAspectBean imageEditInfoAspectBean) {
@@ -545,49 +454,26 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				title.setTitle(oneImageBean.getName());
 			}
 
-
 			Payload payload = new Payload();
 			com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content content = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content();
-
-			Control control = new Control();
-			State state = new State();
-
-			state.setName("published");
-			//TODO is it needed? try without it..
-//			state.setHref("http://inm-test-editorial.inm.lan:8081/webservice/escenic/content/state/published/editor");
-			state.setState("published");
-//			List<State> states = new ArrayList<>();
-//			states.add(state);
-			control.setState(Arrays.asList(state));
-			control.setDraft("no");
-
+			Control control = escenicUtils.generateControl("no", PUBLISHED_STATE);
 			List<Field> fields = generateImageFields(oneImageBean, cresultContent, binaryLocation, imageEditInfoAspectBean);
 			payload.setField(fields);
-
-			//TODO this has to be determined by the type.. if we are going to use the same method for different binary files
-//			payload.setModel("http://inm-test-editorial.inm.lan:8081/webservice/escenic/publication/independent/model/content-type/picture");
 			payload.setModel(escenicConfig.getModelUrl() + EscenicImage.IMAGE_MODEL_CONTENT_TYPE);
-
 			content.setPayload(payload);
 			content.setType(com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content.TYPE);
-
 			entry.setContent(content);
 			entry.setControl(control);
 
 			return entry;
 		} else {
-			//todo.
 			throw new RuntimeException("Could not read properties of an image " + cresultContent);
 		}
 	}
 
 	protected List<Field> generateImageFields(OneImageBean oneImageBean, Content source, String location, ImageEditInfoAspectBean imageEditInfoAspectBean) {
 		List<Field> fields = new ArrayList<Field>();
-
-		//todo probably would be easier to create a custom type? that hold some of the info in single place instead of checking mutliple places...
-//		FilesAspectBeansource.getContent().getAspect(FilesAspectBean.ASPECT_NAME)
 		JSONObject crops = extractCrops(source, imageEditInfoAspectBean);
-
 		if (crops != null) {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
@@ -605,53 +491,45 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		fields.add(escenicUtils.createField("copyright", oneImageBean.getCredit(), null, null));
 
 		if (StringUtils.isNotBlank(location)) {
-			/**
-			 *
-			 *
-			 * TODO BELOW!!
-			 */
-
 			Link link = new Link();
 			link.setHref(location);
-			link.setRel("edit-media");
+			link.setRel(EDIT_MEDIA_RELATIONSHIP);
 
-			Aspect filesAspect = source.getAspect(FilesAspectBean.ASPECT_NAME);
-			FilesAspectBean fab = (FilesAspectBean) filesAspect.getData();
+			ImageInfoAspectBean info = (ImageInfoAspectBean) source.getAspect(ImageInfoAspectBean.ASPECT_NAME).getData();
 			String imgExt = "jpeg";
-			for (ContentFileInfo f : fab.getFiles().values()) {
-				System.out.println("setting ext : " + f.getFilePath().substring(f.getFilePath().lastIndexOf('.') + 1));
-				imgExt = f.getFilePath().substring(f.getFilePath().lastIndexOf('.') + 1);
+			if (info != null) {
+				String path = info.getFilePath();
+				if (StringUtils.isNotBlank(path)) {
+					imgExt = path.substring(path.lastIndexOf('.') + 1);
+					if (StringUtils.equalsIgnoreCase(imgExt, "jpg")) {
+						imgExt = "jpeg";
+					}
+
+				}
 			}
-			if (StringUtils.equalsIgnoreCase(imgExt, "jpg")) {
-				imgExt = "jpeg";
-			}
+
 			link.setType("image/" + imgExt);
-
-			/**
-			 *
-			 *
-			 * TODO ABOVE!!
-			 */
-
 			link.setTitle(oneImageBean.getName());
 			fields.add(escenicUtils.createField("binary", link, null, null));
 		}
 		return fields;
 	}
 
+	protected void assignProperties(OneImageBean oneImageBean, EscenicImage escenicImage, String escenicId, String escenicLocation, ContentId contentId) {
+		escenicImage.setEscenicId(escenicId);
+		escenicImage.setEscenicLocation(escenicLocation);
+		escenicImage.setOnecmsContentId(contentId);
+		escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
+		escenicImage.setTitle(oneImageBean.getName());
+		escenicImage.setCaption(oneImageBean.getCaption());
+		List<Link> links = escenicUtils.generateLinks(escenicImage);
+		escenicImage.setLinks(links);
+	}
 
-	private JSONObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) {
-//<vdf:field name="crops">
-//<vdf:value>{"com.escenic.master":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":false}},"poi":{"top":503.74849115618434,"left":863.2195018355974,"auto":false},"T_ATop_w726h400-2x":{"crop":{"x":0,"y":118.8057719540687,"width":1566,"height":862.809917355372,"auto":false}},"T_Th_w229h155-2x":{"crop":{"x":0,"y":0,"width":1566,"height":1059.9563318777293,"auto":true}},"T_Sq_w478h473-2x":{"crop":{"x":269.5063216581448,"y":0,"width":1187.4263603549052,"height":1175.005582526925,"auto":true}},"T_FullW_w768h652-2x":{"crop":{"x":171.19167408967834,"y":0,"width":1384.055655491838,"height":1175.005582526925,"auto":true}},"T_ColTh_w100square-2x":{"crop":{"x":275.71671057213484,"y":0,"width":1175.005582526925,"height":1175.005582526925,"auto":true}},"mW_Article_w320-2x":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"mW_Article_w320-1x5":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"mW_Article_w320-1x":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"T_Article_w310-2x":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"W_Inline_w620-1x":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"T_Gallery_w768-2x":{"crop":{"x":0,"y":0,"width":1566,"height":1175.005582526925,"auto":true}},"T_Col_w479h151-2x":{"crop":{"x":0,"y":256.91550576996303,"width":1566,"height":493.6659707724426,"auto":true}}}</vdf:value>
-//</vdf:field>
-
-
+	private JSONObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) throws RuntimeException {
 		if (content != null) {
-
-
 			if (imageEditInfoAspectBean != null) {
 				Map<String, CropInfo> crops = imageEditInfoAspectBean.getCrops();
-				//loop over them?
 				if (crops != null) {
 					JSONObject obj = new JSONObject();
 					for (Map.Entry<String, CropInfo> entry : crops.entrySet()) {
@@ -672,10 +550,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 									crop.put("width", cropRectangle.getWidth());
 									crop.put("auto", false);
 									cropObject.put("crop", crop);
-
 									obj.put(getCropKey(key), cropObject);
 								} catch (JSONException e) {
-									log.error("failed to generate json for crops: " + e);
+									throw new RuntimeException("Failed to generate crops : " + e);
 								}
 							}
 						}
@@ -684,7 +561,8 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 					return obj;
 				}
 			} else {
-				log.error("Unable to extract crop information for content: " + content.getId());
+				//todo no image aspect means no crop info?
+				log.debug("Unable to extract crop information for content: " + content.getId());
 			}
 
 
@@ -693,8 +571,17 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	}
 
-	//todo configurable?
-	private static String getCropKey(String key) {
+	private String getCropKey(String key) {
+
+		String value = cropsMapping.get(key);
+		if (StringUtils.isBlank(value)) {
+			log.debug("Value for key: " + key + " not found in the crop mapping. Attempting to return from defaults.");
+			return getDefaultCrop(key);
+		}
+		return value;
+	}
+
+	private String getDefaultCrop(String key) {
 		switch (key) {
 			case "2x1":
 				return "wide";

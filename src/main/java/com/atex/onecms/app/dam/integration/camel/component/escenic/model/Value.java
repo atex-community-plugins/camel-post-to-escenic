@@ -1,6 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic.model;
 
-import com.atex.onecms.app.dam.integration.camel.component.escenic.ValueHandler;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.ValueAdapter;
 
 import javax.xml.bind.annotation.*;
 import java.util.List;
@@ -18,7 +18,7 @@ public class Value {
 	public Value () {
 	}
 
-	@XmlAnyElement(value=ValueHandler.class)
+	@XmlAnyElement(value=ValueAdapter.class)
 	@XmlMixed
 	public List<Object> getValue() {
 		return value;

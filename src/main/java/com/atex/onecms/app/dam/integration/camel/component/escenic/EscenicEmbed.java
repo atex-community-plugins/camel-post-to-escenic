@@ -10,12 +10,14 @@ public class EscenicEmbed extends EscenicContent{
 	public static final String EMBED_MODEL_CONTENT_SUMMARY = "/content-summary/socialembed";
 	protected static final String SOCIAL_EMBED_TYPE = "socialEmbed";
 	private String embedCode;
+	private String embedUrl;
+
+	public EscenicEmbed() {
+	}
 
 	public String getEmbedUrl() {
 		return embedUrl;
 	}
-
-	private String embedUrl;
 
 	public String getEmbedCode() {
 		return embedCode;
@@ -23,12 +25,6 @@ public class EscenicEmbed extends EscenicContent{
 
 	public void setEmbedCode(String embedCode) {
 		this.embedCode = embedCode;
-	}
-
-
-
-	public EscenicEmbed() {
-
 	}
 
 	public void setEmbedUrl(String embedUrl) {

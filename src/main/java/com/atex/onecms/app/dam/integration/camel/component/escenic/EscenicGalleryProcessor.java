@@ -1,10 +1,7 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.standard.aspects.DamCollectionAspectBean;
 import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
@@ -16,13 +13,8 @@ import com.atex.onecms.content.IdUtil;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
@@ -47,8 +39,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 	}
 
-
-	protected EscenicGallery processGallery(ContentId contentId, CustomEmbedParser.SmartEmbed embed, DamEngagementUtils utils, String sectionId) throws FailedToSendContentToEscenicException {
+	protected EscenicGallery processGallery(ContentId contentId, CustomEmbedParser.SmartEmbed embed, DamEngagementUtils utils, String sectionId, String action) throws EscenicException {
 
 		EscenicGallery escenicGallery = new EscenicGallery();
 		List<EscenicContent> collectionEscenicItems = escenicGallery.getContentList();
@@ -67,8 +58,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 					try {
 						existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
 					} catch (CMException e) {
-						//TODO
-						e.printStackTrace();
+						throw new FailedToExtractLocationException("Failed to extract escenic location for content id: " + contentId);
 					}
 					boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
 
@@ -81,7 +71,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 							try {
 								existingGalleryEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 							} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException e) {
-								e.printStackTrace();
+								throw new RuntimeException("Failed to generate existing gallery entry");
 							}
 						}
 					} else {
@@ -99,13 +89,11 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 								if (bean != null && bean instanceof OneImageBean) {
 									EscenicImage escenicImage = new EscenicImage();
-									escenicImage.setOnecmsContentId(id);
-									escenicImage = EscenicImageProcessor.getInstance().processImage(id, escenicImage, utils, collectionEscenicItems, sectionId);
+									escenicImage = EscenicImageProcessor.getInstance().processImage(id, escenicImage, utils, collectionEscenicItems, sectionId, action);
 									if (escenicImage != null) {
 										collectionEscenicItems.add(escenicImage);
 									} else {
-//TODO										throw exception and stop
-										log.error("Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
+										throw new RuntimeException("Something went wrong while procesing an image with id: " + IdUtil.toIdString(id));
 									}
 								}
 							}
@@ -113,48 +101,27 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 					CloseableHttpResponse response = processGallery(collectionAspectBean, existingGalleryEntry, existingEscenicLocation, escenicGallery, escenicConfig, sectionId);
 
+					EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, utils, collectionCr, action);
 
-					//todo can't get the status straight away!!
-					int statusCode = response.getStatusLine().getStatusCode();
+					String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+					String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
 
-					String escenicLocation = null;
-					String escenicId = null;
-					if (statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_OK) {
-
-						try {
-							escenicLocation = retrieveEscenicLocation(response);
-						} catch (IOException | FailedToExtractLocationException e) {
-							e.printStackTrace();
-						}
-						escenicId = extractIdFromLocation(escenicLocation);
-
-					}  else if (statusCode == HttpStatus.SC_NO_CONTENT) {
-						escenicLocation = existingEscenicLocation;
-						escenicId = existingEscenicId;
-
-					}
-
-					else {
-						log.error("The server returned : " + response.getStatusLine() + " when attempting to sendimage id: " + contentId);
-					}
-
-
-					final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-					escenicGallery.setEscenicId(escenicId);
-					escenicGallery.setEscenicLocation(escenicLocation);
-					escenicGallery.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-					escenicGallery.setTitle(collectionAspectBean.getHeadline());
-					List<Link> links = escenicUtils.generateLinks(escenicGallery);
-					escenicGallery.setLinks(links);
-					//atempt to update the engagement
-					processEngagement(contentId, engagement, existingEscenicLocation, utils, collectionCr);
-
+					assignProperties(collectionAspectBean, escenicGallery, escenicId, escenicLocation, contentId);
 				}
 
 			}
 		}
 		return escenicGallery;
+	}
 
+	protected void assignProperties(DamCollectionAspectBean collectionAspectBean, EscenicGallery escenicGallery, String escenicId, String escenicLocation, ContentId contentId) {
+		escenicGallery.setEscenicId(escenicId);
+		escenicGallery.setEscenicLocation(escenicLocation);
+		escenicGallery.setOnecmsContentId(contentId);
+		escenicGallery.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
+		escenicGallery.setTitle(collectionAspectBean.getHeadline());
+		List<Link> links = escenicUtils.generateLinks(escenicGallery);
+		escenicGallery.setLinks(links);
 	}
 
 	public CloseableHttpResponse processGallery(DamCollectionAspectBean collectionAspectBean, Entry existingGalleryEntry, String existingEscenicLocation, EscenicGallery escenicGallery, EscenicConfig escenicConfig, String sectionId) throws FailedToSendContentToEscenicException {
@@ -195,49 +162,13 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
-//			existingEntry.setLink(entry.getLink());
-			List<Link> existingLinks = existingEntry.getLink();
-			List<Link> links = entry.getLink();
-
-			if (existingLinks != null && links != null) {
-				for (Link existinglink : existingLinks) {
-
-					boolean found = false;
-
-					for (Link link : links) {
-						//todo
-						if (StringUtils.equalsIgnoreCase(existinglink.getHref(), link.getHref()) &&
-							StringUtils.equalsIgnoreCase(existinglink.getIdentifier(), link.getIdentifier()) &&
-							StringUtils.equalsIgnoreCase(existinglink.getType(), link.getType())) {
-
-							//it's the same link...
-							found = true;
-						}
-					}
-
-					if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
-						links.add(existinglink);
-
-					}
-				}
-				existingEntry.setLink(links);
-			}
-
-
+			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 			return existingEntry;
 		}
 		return entry;
 
 	}
 
-	/**
-	 * Constructing an atom entry for binary file:
-	 * curl --include -u jwojcik@atex.com:4l+rUbruQE -X POST -H "Content-Type: application/atom+xml" http://inm-test-editorial.inm.lan:8081/webservice/escenic/section/1/content-items --upload-file imageatom.xml
-	 * <p>
-	 * 3
-	 *
-	 * @return
-	 */
 	private Entry constructAtomEntryForGallery(DamCollectionAspectBean collectionAspectBean, EscenicGallery escenicGallery, EscenicConfig escenicConfig) {
 		if (collectionAspectBean != null && escenicGallery != null) {
 			Entry entry = new Entry();
@@ -252,39 +183,21 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 			Payload payload = new Payload();
 			Content content = new Content();
 
-			Control control = new Control();
-			State state = new State();
-			state.setName("published");
-//			state.setHref("http://inm-test-editorial.inm.lan:8081/webservice/escenic/content/state/published/editor");
-			state.setState("published");
-//			List<State> states = new ArrayList<>();
-//			states.add(state);
-			control.setState(Arrays.asList(state));
-			control.setDraft("no");
-
+			Control control = escenicUtils.generateControl("no", PUBLISHED_STATE);
 			List<Field> fields = generateGalleryFields(collectionAspectBean, escenicGallery);
 			payload.setField(fields);
 
 			List<Link> links = generateLinksForGallery(escenicGallery, escenicConfig);
-
-			//TODO how do we handle updates? we need to somehow merge existing links with the links we generate here...
-			//todo we currently reuse whatever is in escenic - thing to consider is what if we want to remove a relationship? or replace it?
 			entry.setLink(links);
-
-			//TODO this has to be determined by the type.. if we are going to use the same method for different binary files
-//			payload.setModel("http://inm-test-editorial.inm.lan:8081/webservice/escenic/publication/independent/model/content-type/gallery");
 			payload.setModel(escenicConfig.getModelUrl() + EscenicGallery.GALLERY_MODEL_CONTENT_TYPE);
-
 			content.setPayload(payload);
 			content.setType(Content.TYPE);
-
 			entry.setContent(content);
 			entry.setControl(control);
 
 			return entry;
 		} else {
-			//todo.
-			throw new RuntimeException("Could not read properties of an image ");
+			throw new RuntimeException("Failed to create atom entry for a gallery");
 		}
 	}
 
@@ -321,30 +234,18 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 								links.add(thumbnailLink);
 							}
 						}
-						//TODO replace with createLink
-						Link pictureRelLink = new Link();
-						Payload payload1 = new Payload();
 						List<Field> fields1 = new ArrayList<>();
 						fields1.add(escenicUtils.createField("title", escenicImage.getTitle(), null, null));
 						fields1.add(escenicUtils.createField("caption", escenicImage.getTitle(), null, null));
-						payload1.setField(fields1);
-						payload1.setModel(escenicConfig.getModelUrl() + EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY);
-						pictureRelLink.setPayload(payload1);
-						pictureRelLink.setGroup("pictureRel");
-						pictureRelLink.setHref(escenicContent.getEscenicLocation());
-						pictureRelLink.setThumbnail(escenicImage.getThumbnailUrl());
-						pictureRelLink.setRel("related");
-						pictureRelLink.setState("published");
-						pictureRelLink.setType("application/atom+xml; type=entry");
-						pictureRelLink.setIdentifier(escenicContent.getEscenicId());
+						Link pictureRelLink = escenicUtils.createLink(fields1, escenicUtils.PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
+							escenicImage.getEscenicLocation(), escenicUtils.ATOM_APP_ENTRY_TYPE, escenicUtils.RELATED, escenicImage.getEscenicId(),
+							escenicImage.getTitle(), PUBLISHED_STATE);
 						links.add(pictureRelLink);
-
 					}
 				}
 			}
 		}
 		return links;
-
 	}
 
 }

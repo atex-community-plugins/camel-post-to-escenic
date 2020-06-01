@@ -38,6 +38,10 @@
 			<help>com.atex.plugins.camel-post-to-escenic.maxImageHeight.help</help>
 			<param name="inlineHelp">true</param>
 		</field>
+		<field input-template="p.TextInput" name="cropsMapping" label="com.atex.plugins.camel-post-to-escenic.cropsMapping">
+			<help>com.atex.plugins.camel-post-to-escenic.cropsMapping.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
 		<content-xml>
 			<contentref group="plugin" name="plugindef">
 				<contentid>

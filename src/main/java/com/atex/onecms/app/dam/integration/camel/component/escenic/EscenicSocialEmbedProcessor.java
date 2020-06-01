@@ -20,6 +20,7 @@ import org.jsoup.nodes.Element;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.UUID;
 
 public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
@@ -28,7 +29,6 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 	public EscenicSocialEmbedProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);
-
 	}
 
 	public static EscenicSocialEmbedProcessor getInstance() {
@@ -43,33 +43,33 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 			instance = new EscenicSocialEmbedProcessor(contentManager, cmServer, escenicUtils, escenicConfig);
 		}
 	}
-	protected EscenicEmbed processSocialEmbed(CustomEmbedParser.SmartEmbed embed, DamEngagementUtils utils, ContentId articleContentId, String sectionId) throws IOException, URISyntaxException, FailedToSendContentToEscenicException {
+
+	private void assingEmbedProperties(DamEmbedAspectBean embedBean, ContentId contentId, String existingEscenicLocation, String escenicId, String embedCode, String embedUrl, EscenicEmbed escenicEmbed) {
+		escenicEmbed.setEscenicLocation(existingEscenicLocation);
+		escenicEmbed.setEscenicId(escenicId);
+		escenicEmbed.setTitle(embedBean.getName());
+		escenicEmbed.setEmbedCode(embedCode);
+		escenicEmbed.setEmbedUrl(embedUrl);
+		escenicEmbed.setOnecmsContentId(contentId);
+		List<Link> links = escenicUtils.generateLinks(escenicEmbed);
+		escenicEmbed.setLinks(links);
+	}
+
+	protected EscenicEmbed processSocialEmbed(CustomEmbedParser.SmartEmbed embed, DamEngagementUtils utils, ContentId articleContentId, String sectionId, String action) throws IOException, URISyntaxException, FailedToSendContentToEscenicException {
 		ContentId contentId = null;
 		if (embed != null && embed.getContentId() != null) {
 			contentId = embed.getContentId();
 		}
-		/**
-		 * TODO issue here is that we do not currently store the embeds...
-		 *
-		 * create it as a content ? -> so that we can then update the engagmenet.
-		 * Do we need to update the body of the article with updated html that contains onecms-id of embed object for further processing?
-		 */
-//		for (CustomEmbedParser.SocialEmbed embed : socialEmbeds) {
+
 		ContentResult<DamEmbedAspectBean> embedCr = null;
 		EscenicEmbed escenicEmbed = new EscenicEmbed();
 		if (contentId != null) {
-			//TODO
-			//NOT NECESSARILY means we're dealing with embed that has already been published...
-
 			ContentVersionId contentVersionId = contentManager.resolve(contentId, Subject.NOBODY_CALLER);
 			if (contentVersionId != null) {
 				embedCr = contentManager.get(contentVersionId, null, DamEmbedAspectBean.class, null, Subject.NOBODY_CALLER);
 			}
 
 			if (embedCr != null && embedCr.getStatus().isSuccess()) {
-				//check if the enagement on the image exists?
-				//we'll need to detect the filename used? just in case the user removes and image and uploads a different one for the same desk object..
-				//this could cause a problem on the escenic side if the image was already uploaded (the binary file)
 				String existingEscenicLocation = null;
 				try {
 					existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
@@ -77,69 +77,63 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 					e.printStackTrace();
 				}
 
+				DamEmbedAspectBean embedBean = null;
+				try {
+					embedBean = (DamEmbedAspectBean) escenicUtils.extractContentBean(embedCr);
+				} catch (Exception e) {
+					throw new RuntimeException("Failed to retrieve DamEmbedAspect bean for : " + embedCr.getContentId());
+				}
+
 				String escenicId = extractIdFromLocation(existingEscenicLocation);
 				if (StringUtils.isNotEmpty(escenicId)) {
-					escenicEmbed.setEscenicLocation(existingEscenicLocation);
-					escenicEmbed.setEscenicId(escenicId);
-					escenicEmbed.setEmbedCode(embed.getEmbedCode());
-					escenicEmbed.setEmbedUrl(embed.getEmbedUrl());
-					contentId = createOnecmsEmbed(escenicEmbed );
-					escenicEmbed.setOnecmsContentId(contentId);
-					List<Link> links = escenicUtils.generateLinks(escenicEmbed);
-					escenicEmbed.setLinks(links);
+
+					assingEmbedProperties(embedBean, contentId, existingEscenicLocation, escenicId, embed.getEmbedCode(), embed.getEmbedUrl(), escenicEmbed);
+					final EngagementDesc engagement = createEngagementObject(escenicId, existingEscenicLocation, getCurrentCaller());
+					processEngagement(escenicEmbed.getOnecmsContentId(), engagement, escenicEmbed.getEscenicLocation(), utils, embedCr);
 				}
 			}
 		} else {
 			//brand new embed that does not exist in escenic
-			List<CloseableHttpResponse> responses;
-			responses = EscenicSmartEmbedProcessor.getInstance().processEmbed(embed, cmServer, escenicConfig, escenicEmbed, sectionId);
-			for (CloseableHttpResponse response : responses) {
-				int statusCode = response.getStatusLine().getStatusCode();
-				//|| statusCode == HttpStatus.SC_NO_CONTENT
-				if (statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_OK) {
-					String escenicLocation = null;
-					try {
-						escenicLocation = retrieveEscenicLocation(response);
-					} catch (FailedToExtractLocationException e) {
-						e.printStackTrace();
-					}
-					String escenicId = extractIdFromLocation(escenicLocation);
-					final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-					escenicEmbed.setEscenicLocation(escenicLocation);
-					escenicEmbed.setEscenicId(escenicId);
-					escenicEmbed.setEmbedCode(embed.getEmbedCode());
-					escenicEmbed.setEmbedUrl(embed.getEmbedUrl());
-					contentId = createOnecmsEmbed(escenicEmbed );
-					escenicEmbed.setOnecmsContentId(contentId);
-					List<Link> links = escenicUtils.generateLinks(escenicEmbed);
-					escenicEmbed.setLinks(links);
+			CloseableHttpResponse response = EscenicSmartEmbedProcessor.getInstance().processEmbed(embed, escenicConfig, escenicEmbed, sectionId);
 
-					processEngagement(contentId, engagement, null, utils, embedCr);
-
-
-				} else {
-					log.error("The server returned : " + response.getStatusLine() + " when attempting to send embed id: " + escenicEmbed.getOnecmsContentId());
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_NO_CONTENT) {
+				String escenicLocation = null;
+				try {
+					escenicLocation = retrieveEscenicLocation(response);
+				} catch (FailedToExtractLocationException e) {
+					e.printStackTrace();
 				}
+				String escenicId = extractIdFromLocation(escenicLocation);
+				final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
+				ContentResult cr = createOnecmsEmbed(escenicEmbed);
+				DamEmbedAspectBean embedBean = null;
+				try {
+					 embedBean = (DamEmbedAspectBean) escenicUtils.extractContentBean(cr);
+				} catch (Exception e) {
+					throw new RuntimeException("Failed to retrieve DamEmbedAspect bean for : " + cr.getContentId());
+				}
+				ContentId onecmsId = cr.getContent().getId().getContentId();
+				assingEmbedProperties(embedBean, onecmsId, escenicLocation, escenicId, embed.getEmbedCode(), embed.getEmbedUrl(), escenicEmbed );
+				processEngagement(escenicEmbed.getOnecmsContentId(), engagement, null, utils, embedCr);
+			} else {
+				log.error("The server returned : " + response.getStatusLine() + " when attempting to send embed id: " + escenicEmbed.getOnecmsContentId());
+				throw new RuntimeException("Received an error response from escenic: " + response.getStatusLine().getStatusCode() + " : " + response.getStatusLine().getReasonPhrase() + " - " + response.getEntity().toString());
+
 			}
+
 		}
 
 		return escenicEmbed;
 	}
 
-
-
 	/**
 	 * responsible for creating dummy onecms Embeds for the purpose of storing engagements
 	 * @param escenicEmbed
 	 */
-	protected ContentId createOnecmsEmbed(EscenicEmbed escenicEmbed) {
-		escenicEmbed.getEscenicId();
-		escenicEmbed.getEmbedCode();
-		escenicEmbed.getEscenicLocation();
-
+	protected ContentResult createOnecmsEmbed(EscenicEmbed escenicEmbed) throws RuntimeException {
 		DamEmbedAspectBean embedAspectBean = new DamEmbedAspectBean();
 		embedAspectBean.setHtml(escenicEmbed.getEmbedCode());
-		//todo parse the name based on the url...
 		embedAspectBean.setName(escenicEmbed.getEscenicId());
 
 		ContentWrite<DamEmbedAspectBean> content  = new ContentWriteBuilder<DamEmbedAspectBean>()
@@ -149,10 +143,10 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 		if (content != null) {
 			ContentResult<DamEmbedAspectBean> cr = contentManager.create(content, SubjectUtil.fromCaller(getCurrentCaller()));
-			return cr.getContent().getId().getContentId();
+			return cr;
 
 		} else {
-			throw new RuntimeException("failed to create DamEmbedAspectBean");
+			throw new RuntimeException("Failed to create DamEmbedAspectBean");
 		}
 	}
 
@@ -163,7 +157,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 				for (EscenicContent escenicContent : escenicContentList) {
 					if (escenicContent.isInlineElement()) {
 						if (escenicContent != null && (escenicContent instanceof EscenicImage || escenicContent instanceof EscenicGallery)) {
-//						||	escenicContent instanceof EscenicVideo)
+						//todo drop2 -> ||	escenicContent instanceof EscenicVideo)  ?
 
 							if (escenicContent.getOnecmsContentId() != null) {
 								if (StringUtils.isNotEmpty(escenicContent.getEscenicId()) && embed.getContentId() != null &&
@@ -181,7 +175,6 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 								if (escenicEmbed.getOnecmsContentId() != null) {
 									e.attr("data-onecms-id", IdUtil.toIdString(escenicEmbed.getOnecmsContentId()));
-
 								}
 
 								if (StringUtils.isNotEmpty(escenicContent.getEscenicId())) {
@@ -197,95 +190,9 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 		return body;
 	}
 
-
 	public static List<CustomEmbedParser.SmartEmbed> processEmbeds(String text) {
 		return customEmbedParser.getSmartEmbed(text);
 	}
-
-//	private List<EscenicContent> processSmartEmbeds(ContentResult<Object> cr, ContentManager contentManager, DamEngagementUtils utils, PolicyCMServer cmServer, OneArticleBean article, Entry entry, String sectionId) throws CMException, IOException, URISyntaxException {
-//		log.debug("Processing smart embeds");
-//		List<EscenicContent> escenicContentList = new ArrayList<>();
-//		if (cr.getStatus().isSuccess()) {
-//			List<CustomEmbedParser.SmartEmbed> embeds = escenicUtils.processEmbeds(article.getBody().getText());
-//			Content c = cr.getContent();
-//			if (c != null) {
-//
-//				List<Link> links = null;
-//				if (entry != null && entry.getLink() != null) {
-//					links = entry.getLink();
-//				}
-//				//at this stage we assume that content does not exist in escenic.. wrong assumption?
-//				for (CustomEmbedParser.SmartEmbed embed : embeds) {
-//					if (embed != null) {
-//
-//						if (StringUtils.isNotEmpty(embed.getObjType())) {
-//							switch (embed.getObjType()) {
-//								case EscenicImage.IMAGE_TYPE:
-//									if (embed.getContentId() != null) {
-//										EscenicImage escenicImage = new EscenicImage();
-//										escenicImage.setOnecmsContentId(embed.getContentId());
-//										escenicImage = processImage(embed.getContentId(), escenicImage, utils, escenicContentList, sectionId);
-//
-//										if (escenicImage != null) {
-//											escenicContentList.add(escenicImage);
-//										} else {
-//											log.error("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
-//										}
-//									} else {
-//										log.warn("Unable to process an inline image as the onecms id was not found in embeded text");
-//									}
-//
-//
-//									break;
-//
-//								case EscenicGallery.GALLERY_TYPE:
-//									if (embed.getContentId() != null) {
-//										EscenicGallery escenicGallery = processGallery(embed.getContentId(), embed, utils, sectionId);
-//										escenicContentList.add(escenicGallery);
-//									}
-//
-//									break;
-//
-//								case EscenicEmbed.SOCIAL_EMBED_TYPE:
-//									//special case - we won't be sending any updates to social embeds I guess?
-//									//So in here, if the entry exists, you can reuse what's already on the entry.
-//									//of course if the embed escenic id matches what's in the link, otherwise create a new one.
-//									if (entry == null) {
-//										EscenicEmbed escenicEmbed = processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId);
-//										escenicContentList.add(escenicEmbed);
-//									} else if (links != null) {
-//										boolean found = false;
-//										for (Link link : links) {
-//											if (StringUtils.isNotEmpty(embed.getEscenicId()) && StringUtils.equalsIgnoreCase(link.getIdentifier(), embed.getEscenicId())) {
-//												EscenicEmbed escenicEmbed = new EscenicEmbed();
-//												escenicEmbed.setEscenicLocation(link.getHref());
-//												escenicEmbed.setEscenicId(link.getIdentifier());
-//												escenicEmbed.setEmbedCode(embed.getEmbedCode());
-//												escenicEmbed.setEmbedUrl(embed.getEmbedUrl());
-//												escenicEmbed.setLinks(Arrays.asList(link));
-//												escenicContentList.add(escenicEmbed);
-//												found = true;
-//												break;
-//											}
-//										}
-//
-//										if (!found) {
-//											//we're dealing with new embed instead..
-//											EscenicEmbed escenicEmbed = processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId);
-//											escenicContentList.add(escenicEmbed);
-//										}
-//									}
-//
-//									break;
-//							}
-//						}
-//					}
-//				}
-//			}
-//		}
-//
-//		return escenicContentList;
-//	}
 
 	protected static String replaceEmbeds(String structuredText, List<EscenicContent> escenicContentList) {
 		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, (e) -> {
@@ -296,7 +203,6 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 					switch (embed.getObjType()) {
 
 						case EscenicImage.IMAGE_TYPE:
-							//todo here check the embed type and generate different html tags based on that.?
 							if (escenicContent != null && escenicContent instanceof EscenicImage) {
 								final ContentId id = embed.getContentId();
 								if (id != null && escenicContent.getOnecmsContentId() != null) {
@@ -304,13 +210,10 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 										try {
 											EscenicImage escenicImage = (EscenicImage) escenicContent;
-											String newHtml;
-											if (StringUtils.isNotEmpty(escenicImage.getId())) {
-												newHtml = "<p><img src=\"" + escenicImage.getThumbnailUrl() + "\" alt=\"undefined\" id=\"" + escenicImage.getId() + "\"></img></p>";
-											} else {
-												newHtml = "<p><img src=\"" + escenicImage.getThumbnailUrl() + "\" alt=\"undefined\"></img></p>";
+											if (StringUtils.isEmpty(escenicImage.getId())) {
+												escenicImage.setId("_" + UUID.randomUUID().toString());
 											}
-
+											String newHtml = "<p><img src=\"" + escenicImage.getThumbnailUrl() + "\" alt=\"undefined\" id=\"" + escenicImage.getId() + "\"></img></p>";
 											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 											e.replaceWith(ne);
 										} catch (ClassCastException classCastException) {
@@ -330,12 +233,10 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 										try {
 											EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
-											String newHtml;
-											if (StringUtils.isNotEmpty(escenicGallery.getId())) {
-												newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" id=\"" + escenicGallery.getId() + "\" alt=\"undefined\"></a></p>";
-											} else {
-												newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" alt=\"undefined\"></a></p>";
+											if (StringUtils.isEmpty(escenicGallery.getId())) {
+												escenicGallery.setId("_" + UUID.randomUUID().toString());
 											}
+											String newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" id=\"" + escenicGallery.getId() + "\" alt=\"undefined\"></a></p>";
 
 											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 											e.replaceWith(ne);
@@ -349,6 +250,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 						case "video":
 
+							//TODO drop 2
 //							if (escenicContent != null && escenicContent instanceof ) {
 //								final ContentId id = embed.getContentId();
 //								if (id != null && escenicContent.getOnecmsContentId() != null) {
@@ -372,12 +274,11 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 							if (escenicContent != null && escenicContent instanceof EscenicEmbed) {
 								EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
 								if (StringUtils.isNotEmpty(embed.getEmbedUrl()) && StringUtils.equalsIgnoreCase(escenicEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
-									String newHtml;
-									if (StringUtils.isNotEmpty(escenicEmbed.getId())) {
-										newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\"></a></p>";
-									} else {
-										newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\"></a></p>";
+
+									if (StringUtils.isEmpty(escenicEmbed.getId())) {
+										escenicEmbed.setId("_" + UUID.randomUUID().toString());
 									}
+									String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\"></a></p>";
 
 									final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 									e.replaceWith(ne);
@@ -410,6 +311,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 											(e.hasAttr("href") && StringUtils.equalsIgnoreCase(escenicContent.getEscenicLocation(), e.attr("href")) ||
 												(e.hasAttr("src") &&
 													StringUtils.equalsIgnoreCase(escenicContent.getEscenicLocation().replaceAll("escenic/content", "thumbnail/article"), e.attr("src"))))) {
+											//left this to ensure the id is prefixed with_
 											if (e.hasAttr("id") && !e.attr("id").startsWith("_") && (escenicContent.getId() == null || !escenicContent.getId().startsWith("_"))) {
 												escenicContent.setId("_" + e.attr("id"));
 											} else if (e.hasAttr("id") && e.attr("id").startsWith("_") && (escenicContent.getId() == null || !escenicContent.getId().startsWith("_"))) {
@@ -419,7 +321,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 									}
 								}
 							} else {
-								log.debug("");
+								log.error("was unable to process internal id within article body");
 							}
 						}
 					}
@@ -427,6 +329,4 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 			}
 		}
 	}
-
-
 }

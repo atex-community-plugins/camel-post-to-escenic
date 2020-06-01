@@ -1,7 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic.model;
 
 import com.atex.onecms.app.dam.integration.camel.component.escenic.HrefAdapter;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.ValueAdapter;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -15,20 +14,6 @@ import java.util.Objects;
  */
 @XmlRootElement
 public class Link {
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		Link link = (Link) o;
-		return Objects.equals(type, link.type) &&
-			Objects.equals(href, link.href) &&
-			Objects.equals(identifier, link.identifier);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(type, href, identifier);
-	}
 
 	private String rel;
 	private String type;
@@ -120,4 +105,21 @@ public class Link {
 	public void setTitle(String title) {
 		this.title = title;
 	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Link link = (Link) o;
+		return Objects.equals(getType(), link.getType()) &&
+			Objects.equals(getHref(), link.getHref()) &&
+			Objects.equals(getIdentifier(), link.getIdentifier());
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(getType(), getHref(), getIdentifier());
+	}
+
+
 }

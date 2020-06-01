@@ -11,8 +11,17 @@ public class EscenicImage extends EscenicContent {
 	protected static final String IMAGE_TYPE = "image";
 
 	private String title;
-
 	private boolean topElement = false;
+	private String thumbnailUrl;
+	private String caption;
+
+	public String getCaption() {
+		return caption;
+	}
+
+	public void setCaption(String caption) {
+		this.caption = caption;
+	}
 
 	public boolean isTopElement() {
 		return topElement;
@@ -21,8 +30,6 @@ public class EscenicImage extends EscenicContent {
 	public void setTopElement(boolean topElement) {
 		this.topElement = topElement;
 	}
-
-	private String thumbnailUrl;
 
 	public String getThumbnailUrl() {
 		return thumbnailUrl;

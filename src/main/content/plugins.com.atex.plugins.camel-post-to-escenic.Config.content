@@ -5,8 +5,8 @@ securityparent:p.siteengine.Configuration.d
 component:polopoly.Content:name:Camel Post To Escenic Configuration
 component:user:value:
 component:password:value:
-component:apiUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/section/2/content-items
+component:apiUrl:value:http\://inm-test-editorial.inm.lan\:8081
 component:binaryUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/binary
 component:webSectionDimension:value:department.categorydimension.inm
 component:modelUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/publication/independent/model
-
+component:cropsMapping:value:2x1\:wide,3x2\:landscape,1x1\:square,2x3\:portrait,default\:free

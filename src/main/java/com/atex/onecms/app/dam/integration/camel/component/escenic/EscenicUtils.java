@@ -1,5 +1,7 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import com.atex.onecms.app.dam.engagement.EngagementDesc;
+import com.atex.onecms.app.dam.engagement.EngagementElement;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
@@ -15,6 +17,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -40,7 +43,6 @@ import org.slf4j.LoggerFactory;
 import javax.xml.bind.*;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
@@ -51,28 +53,26 @@ import java.util.List;
 public class EscenicUtils {
 
 	private static String AUTH_PREFIX = "Basic ";
-	private static final CustomEmbedParser customEmbedParser = new CustomEmbedParser();
 	private static Logger log = LoggerFactory.getLogger(EscenicUtils.class);
 	protected EscenicConfig escenicConfig;
-	private static final String INLINE_RELATIONS_GROUP = "com.escenic.inlineRelations";
-	private static final String PICTURE_RELATIONS_GROUP = "pictureRel";
-	private static final String THUMBNAIL_RELATION_GROUP = "thumbnail";
-	private static final String APP_ATOM_XML = "application/atom+xml";
-	private static final String ATOM_APP_ENTRY_TYPE = APP_ATOM_XML + "; type=entry";
-	private static final String RELATED = "related";
-	private static final String PUBLISHED_STATE = "published";
+	protected static final String INLINE_RELATIONS_GROUP = "com.escenic.inlineRelations";
+	protected static final String PICTURE_RELATIONS_GROUP = "pictureRel";
+	protected static final String THUMBNAIL_RELATION_GROUP = "thumbnail";
+	protected static final String APP_ATOM_XML = "application/atom+xml";
+	protected static final String ATOM_APP_ENTRY_TYPE = APP_ATOM_XML + "; type=entry";
+	protected static final String RELATED = "related";
+	protected static final String PUBLISHED_STATE = "published";
 
 	public CloseableHttpClient getHttpClient() {
 		return httpClient;
 	}
 
 	protected CloseableHttpClient httpClient;
-	static final int TIMEOUT = 6000;
-	RequestConfig config = RequestConfig.custom()
+	private static final int TIMEOUT = 60 * 1000;
+	private static final RequestConfig config = RequestConfig.custom()
 		.setConnectTimeout(TIMEOUT)
 		.setConnectionRequestTimeout(TIMEOUT)
 		.setSocketTimeout(TIMEOUT).build();
-
 
 
 	public EscenicUtils(EscenicConfig escenicConfig) {
@@ -83,13 +83,10 @@ public class EscenicUtils {
 			.disableContentCompression()
 			.setDefaultRequestConfig(config)
 			.build();
-
 	}
-
 
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
 		HttpGet request = new HttpGet(location);
-//		CloseableHttpClient httpClient = HttpClients.createDefault();
 		request.setHeader(generateAuthenticationHeader());
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
@@ -113,17 +110,33 @@ public class EscenicUtils {
 		if (StringUtils.isNotEmpty(location)) {
 			String xml = retrieveEscenicItem(location);
 			System.out.println(xml);
-			log.debug("GETTING CONTENT: " + location + " FROM ESCENIC:\n" + xml);
+			log.debug("Result on GET on location : " + location + " from escenic:\n" + xml);
 			entry = deserializeXml(xml);
 		}
 		return entry;
 	}
 
 
-	protected static Value createValue(String fieldName, Object value) {
+	private boolean isValueEscaped(String fieldName) {
+
+		if (StringUtils.isNotEmpty(fieldName)) {
+			switch (fieldName) {
+				case "body":
+				case "embedCode":
+				case "autocrop":
+				case "summary":
+					return true;
+				default:
+					return false;
+			}
+		}
+		return false;
+	}
+
+	protected Value createValue(String fieldName, Object value) {
 		if (value != null) {
 			if (value instanceof String) {
-				if (!StringUtils.equalsIgnoreCase(fieldName, "body") && !StringUtils.equalsIgnoreCase(fieldName, "embedCode") && !StringUtils.equalsIgnoreCase(fieldName, "autocrop")) {
+				if (!isValueEscaped(fieldName)) {
 					value = escapeHtml(value.toString());
 				}
 			}
@@ -131,13 +144,11 @@ public class EscenicUtils {
 		} else {
 			return null;
 		}
-
 	}
 
-	protected static Field createField(String fieldName, Object value, List<Field> fields, com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
+	protected Field createField(String fieldName, Object value, List<Field> fields, com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
 		return new Field(fieldName, createValue(fieldName, value), fields, list);
 	}
-
 
 	protected String wrapWithDiv(String text) {
 		return "<div xmlns=\"http://www.w3.org/1999/xhtml\">" + text + "</div>";
@@ -147,20 +158,14 @@ public class EscenicUtils {
 		return "<![CDATA[" + text + "]]>";
 	}
 
-	//TODO in here we need to escape < > & (and other chars that need to be escaped for xml within html elements)
 	protected String convertStructuredTextToEscenic(String structuredText, List<EscenicContent> escenicContentList) {
-		System.out.println("Before replacing embeds:\n" + structuredText);
-		//todo just removed 2 lines below see if it works..
-//		structuredText = StringEscapeUtils.unescapeHtml(structuredText);
-//		org.apache.commons.lang3.StringEscapeUtils.unescapeXml(structuredText);
-		System.out.println("After escaping html/xml :\n" + structuredText);
-//		structuredText = structuredText.replaceAll("\u00a0", "");
-//		structuredText = "<div xmlns=\"http://www.w3.org/1999/xhtml\">" + structuredText + "</div>";
+		log.debug("Body before replacing embeds: " + structuredText);
 		structuredText = wrapWithDiv(structuredText);
-		String result = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
-		System.out.println("After replacing embeds:\n" + result);
-		System.out.println("After replacing embeds:\n" + result);
-		return result;
+		if (escenicContentList != null && !escenicContentList.isEmpty()) {
+			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
+		}
+		log.debug("Body after replacing embeds: " + structuredText);
+		return structuredText;
 	}
 
 	protected String getStructuredText(StructuredText str) {
@@ -177,13 +182,11 @@ public class EscenicUtils {
 	}
 
 	protected InputStreamEntity generateImageEntity(InputStream in, String imgExt) {
-//		ByteArrayEntity entity = new ByteArrayEntity(baos.toByteArray());
 		String mimeType = MimeUtil.getMimeType(imgExt).orElse(null);
 		final ContentType contentType = ContentType.create(
 			Optional.ofNullable(mimeType)
 				.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
 		final InputStreamEntity inputStreamEntity = new InputStreamEntity(in, contentType);
-//		entity.setContentType("image/" + imgExt);
 		return inputStreamEntity;
 	}
 
@@ -222,14 +225,10 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader());
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 
-		System.out.println("Sending the following xml to escenic:" + xmlContent);
+		log.debug("Sending the following xml to escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
-			//todo here add better handling of response
-			System.out.println(result.getStatusLine());
-			System.out.println(EntityUtils.toString(result.getEntity()));
-			//todo probably check the status code?
 			return result;
 		} catch (Exception e) {
 			throw new FailedToSendContentToEscenicException("Failed to send new content to escenic: " + e);
@@ -238,41 +237,29 @@ public class EscenicUtils {
 		}
 	}
 
-	protected CloseableHttpResponse sendUpdatedContentToEscenic(String url, String xmlContent) {
+	protected CloseableHttpResponse sendUpdatedContentToEscenic(String url, String xmlContent) throws FailedToSendContentToEscenicException {
 		HttpPut request = new HttpPut(url);
-
-		//TODO timeout handlers - create a single static client
-//		CloseableHttpClient httpClient = HttpClients.createDefault();
-
 		request.setEntity(generateAtomEntity(xmlContent));
 		request.expectContinue();
 		request.setHeader(generateAuthenticationHeader());
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
-		//TODO we might need to do additonal querying here if we were to use ETAG ...
 		request.setHeader(HttpHeaders.IF_MATCH, "*");
-		System.out.println("Sending the following UPDATE xml to escenic:" + xmlContent);
+		log.debug("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
-//			System.out.println("result: " + EntityUtils.toString(result.getEntity()));
-			System.out.println(result.getStatusLine());
-			//todo probably check the status code?
 			return result;
 		} catch (Exception e) {
-			System.out.println("Error - :" + e.getMessage());
-			System.out.println("Error - :" + e.getCause());
+			throw new FailedToSendContentToEscenicException("Failed to send an update to escenic due to: " + e);
 		} finally {
 			request.releaseConnection();
 		}
-		return null;
-
 	}
 
 	protected static Entry deserializeXml(String xml) throws FailedToDeserializeContentException {
 		Entry entry = null;
 		try {
 			JAXBContext jaxbContext = JAXBContext.newInstance(Entry.class);
-			System.out.println("jaxbContext is=" + jaxbContext.toString());
 			Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 			entry = (Entry) unmarshaller.unmarshal(new StringReader(xml));
 
@@ -292,14 +279,11 @@ public class EscenicUtils {
 //			marshaller.setProperty(Marshaller.JAXB_ENCODING, "Unicode");
 //			marshaller.setProperty(Marshaller.JAXB_ENCODING, "utf8");
 			marshaller.setProperty(CharacterEscapeHandler.class.getName(), new CustomCharacterEscapeHandler());
-			//marshaller.marshal(object, new OutputStreamWriter(System.out));
-
 			marshaller.marshal(object, new StreamResult(stringWriter));
 			return stringWriter.getBuffer().toString();
 
 		} catch (Exception e) {
-			log.error("An error occurred during serialization");
-			e.printStackTrace();
+			throw new RuntimeException("An error occurred during serialization");
 		} finally {
 			if (stringWriter.getBuffer() != null) {
 				return stringWriter.getBuffer().toString();
@@ -309,27 +293,31 @@ public class EscenicUtils {
 		}
 	}
 
+	protected Control generateControl(String draft, String stateText) {
+		Control control = new Control();
+		control.setDraft(draft);
+		control.setState(generateState(stateText));
+		return control;
+	}
+
+	protected List<State> generateState(String stateText) {
+		State state = new State();
+		state.setState(stateText);
+		state.setName(stateText);
+		return Arrays.asList(state);
+	}
 
 	private String clean(String component) {
 		if (component == null) return null;
 		return CharMatcher.ASCII.retainFrom(component);
 	}
 
-	public List<Link> generateLinks(EscenicContent escenicContent ) {
+	public List<Link> generateLinks(EscenicContent escenicContent) {
 		List<Link> links = new ArrayList<>();
-
-		//TODO we need to be able to map things correctly here!!
 		if (escenicContent != null) {
 
 			if (escenicContent instanceof EscenicImage) {
 				EscenicImage escenicImage = (EscenicImage) escenicContent;
-
-
-//				Link thumbnailLink = new Link();
-//				thumbnailLink.setHref(escenicImage.getThumbnailUrl());
-//				thumbnailLink.setRel("thumbnail");
-//				thumbnailLink.setType("image/png");
-//				links.add(thumbnailLink);
 				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), "image/png",
 					null, null, null, null, null, null);
 
@@ -337,28 +325,10 @@ public class EscenicUtils {
 					links.add(link);
 				}
 
-
 				if (escenicImage.isTopElement()) {
-					//TODO replace with createLink
-					//TODO does this happen automatically? Do we define pictureRel along side the inline relations?
-//					Link pictureRelLink = new Link();
-//					Payload payload1 = new Payload();
 					List<Field> fields = new ArrayList<>();
 					fields.add(createField("title", escenicImage.getTitle(), null, null));
-					//TODO
-					fields.add(createField("caption", "", null, null));
-//					payload1.setField(fields);
-//					payload1.setModel(escenicConfig.getModelUrl() + EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY);
-//					pictureRelLink.setPayload(payload1);
-//					pictureRelLink.setGroup("pictureRel");
-//					pictureRelLink.setHref(escenicContent.getEscenicLocation());
-//					pictureRelLink.setThumbnail(escenicImage.getThumbnailUrl());
-//					pictureRelLink.setRel("related");
-//					pictureRelLink.setState("published");
-//					pictureRelLink.setType("application/atom+xml; type=entry");
-//					pictureRelLink.setIdentifier(escenicContent.getEscenicId());
-//					links.add(pictureRelLink);
-
+					fields.add(createField("caption", escenicImage.getCaption(), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -369,25 +339,9 @@ public class EscenicUtils {
 				}
 
 				if (escenicImage.isInlineElement()) {
-//					Link link = new Link();
-					//TODO replace with createLink
-//					Payload payload = new Payload();
 					List<Field> fields = new ArrayList<>();
 					fields.add(createField("title", escenicImage.getTitle(), null, null));
-					fields.add(createField("caption", escenicImage.getTitle(), null, null));
-//					link.setGroup("com.escenic.inlineRelations");
-//					link.setThumbnail(escenicImage.getThumbnailUrl());
-//					payload.setField(fields);
-//					payload.setModel(escenicConfig.getModelUrl() + EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY);
-//					link.setHref(escenicContent.getEscenicLocation());
-//					link.setType("application/atom+xml; type=entry");
-//					link.setRel("related");
-//					link.setState("published");
-//					link.setPayload(payload);
-//					link.setIdentifier(escenicContent.getEscenicId());
-//
-//					link.setTitle(escenicImage.getTitle());
-//					links.add(link);
+					fields.add(createField("caption", escenicImage.getCaption(), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -400,13 +354,6 @@ public class EscenicUtils {
 
 			} else if (escenicContent instanceof EscenicGallery) {
 				EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
-//				Link thumbnailLink = new Link();
-//				thumbnailLink.setHref(escenicGallery.getThumbnailUrl());
-//				thumbnailLink.setRel("thumbnail");
-//				thumbnailLink.setType("image/png");
-//				links.add(thumbnailLink);
-
-
 				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), "image/png",
 					null, null, null, null, null, null);
 
@@ -414,60 +361,20 @@ public class EscenicUtils {
 					links.add(link);
 				}
 
-
 				if (escenicGallery.isTopElement()) {
-					//TODO does this happen automatically? Do we define pictureRel along side the inline relations?
-					//TODO replace with createLink
 					List<Field> fields = new ArrayList<>();
 					fields.add(createField("title", escenicGallery.getTitle(), null, null));
-					fields.add(createField("caption", escenicGallery.getTitle(), null, null));
-//					payload1.setField(fields1);
-//					payload1.setModel(escenicConfig.getModelUrl() + EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY);
-//					pictureRelLink.setPayload(payload1);
-//					pictureRelLink.setGroup("pictureRel");
-//					pictureRelLink.setHref(escenicContent.getEscenicLocation());
-//					pictureRelLink.setThumbnail(escenicGallery.getThumbnailUrl());
-//					pictureRelLink.setRel("related");
-//					pictureRelLink.setState("published");
-//					pictureRelLink.setType("application/atom+xml; type=entry");
-//					pictureRelLink.setIdentifier(escenicGallery.getEscenicId());
-//					links.add(pictureRelLink);
-
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
-
 					if (topElementLink != null) {
 						links.add(topElementLink);
 					}
 				}
 
-
-
 				if (escenicContent.isInlineElement()) {
-
-
-
-//					Link link = new Link();
-//					//TODO replace with createLink
-//					Payload payload = new Payload();
 					List<Field> fields = new ArrayList<>();
 					fields.add(createField("title", escenicGallery.getTitle(), null, null));
-					fields.add(createField("caption", "test", null, null));
-//					link.setGroup("com.escenic.inlineRelations");
-//					link.setThumbnail(escenicGallery.getThumbnailUrl());
-//					payload.setField(fields);
-//					payload.setModel(escenicConfig.getModelUrl() + EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY);
-//					link.setHref(escenicContent.getEscenicLocation());
-//					link.setType("application/atom+xml; type=entry");
-//					link.setRel("related");
-//					link.setState("published");
-//					link.setPayload(payload);
-//					link.setIdentifier(escenicContent.getEscenicId());
-//
-//					link.setTitle(escenicGallery.getTitle());
-//					links.add(link);
-
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -479,34 +386,15 @@ public class EscenicUtils {
 
 			} else if (escenicContent instanceof EscenicEmbed) {
 				EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
-				//TODO replace with createLink
-
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", "adm embed", null, null));
-				//todo change title? what do we set it to?
+				fields.add(createField("title", escenicEmbed.getTitle(), null, null));
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY,
-						   escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
-					  "TITLE", PUBLISHED_STATE);
+					escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
+					escenicEmbed.getTitle(), PUBLISHED_STATE);
 
 				if (link != null) {
 					links.add(link);
 				}
-
-//				Link link = new Link();
-//				Payload payload = new Payload();
-//
-//				link.setGroup("com.escenic.inlineRelations");
-//				payload.setField(fields);
-//				payload.setModel(escenicConfig.getModelUrl() + EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY);
-//				link.setHref(escenicEmbed.getEscenicLocation());
-//				link.setType("application/atom+xml; type=entry");
-//				link.setRel("related");
-//				link.setState("published");
-//				link.setPayload(payload);
-//				link.setIdentifier(escenicEmbed.getEscenicId());
-//
-//				link.setTitle("adm embed");
-//				links.add(link);
 			}
 		}
 
@@ -514,7 +402,7 @@ public class EscenicUtils {
 
 	}
 
-	private Link createLink(List<Field> fields, String group, String thumbnail, String model, String href, String type, String rel, String identifier, String title, String state){
+	protected Link createLink(List<Field> fields, String group, String thumbnail, String model, String href, String type, String rel, String identifier, String title, String state) {
 		Link link = new Link();
 		Payload payload = new Payload();
 		payload.setField(fields);
@@ -535,43 +423,8 @@ public class EscenicUtils {
 		return link;
 	}
 
-	private String cleanHTMLToText(String articleField) {
-
-		if (articleField == null) return null;
-
-		Document doc = Jsoup.parse(articleField);
-
-		doc = new Cleaner(Whitelist.none()).clean(doc);
-
-		return doc.body().text();
-
-	}
-
-	private String cleanHTMLToXHTML(String text) {
-		if (text == null) return null;
-
-		Document doc = Jsoup.parse(text);
-
-		removeComments(doc);
-
-		doc.outputSettings().escapeMode(Entities.EscapeMode.xhtml);
-
-		return doc.body().html();
-	}
-
 	protected static String escapeHtml(String text) {
 		return StringEscapeUtils.escapeHtml(text);
-	}
-
-	private void removeComments(Node node) {
-		for (int i = 0; i < node.childNodes().size(); ) {
-			Node child = node.childNode(i);
-			if (child.nodeName().equals("#comment")) child.remove();
-			else {
-				removeComments(child);
-				i++;
-			}
-		}
 	}
 
 	protected static Object extractContentBean(ContentResult contentCr) {
@@ -589,7 +442,7 @@ public class EscenicUtils {
 		return null;
 	}
 
-	protected static ContentResult checkAndExtractContentResult(ContentId contentId, ContentManager contentManager) throws RuntimeException  {
+	protected static ContentResult checkAndExtractContentResult(ContentId contentId, ContentManager contentManager) throws RuntimeException {
 
 		ContentResult<OneContentBean> contentCr = null;
 		ContentVersionId contentVersionId = null;
@@ -602,15 +455,63 @@ public class EscenicUtils {
 		if (contentVersionId != null) {
 			contentCr = contentManager.get(contentVersionId, null, OneContentBean.class, null, Subject.NOBODY_CALLER);
 		} else {
-			//error here about contentversionid
 			throw new RuntimeException("ContentVersionId not found");
 		}
 
 		if (contentCr != null && contentCr.getStatus().isSuccess()) {
 			return contentCr;
 		} else {
-			//throw an error?
 			throw new RuntimeException("Retrieing content failed: " + contentCr.getStatus());
 		}
+	}
+
+	protected String getEscenicIdFromEngagement(EngagementDesc engagementDesc, String existingId) {
+		String escenicId = existingId;
+		if (engagementDesc != null) {
+
+			if (StringUtils.isNotBlank(engagementDesc.getAppPk())) {
+				escenicId = engagementDesc.getAppPk();
+			}
+		}
+
+		return escenicId;
+	}
+
+	protected String getEscenicLocationFromEngagement(EngagementDesc engagementDesc, String existingLocation) {
+		String escenicLocation = existingLocation;
+		if (engagementDesc != null) {
+			if (engagementDesc.getAttributes() != null) {
+				for (EngagementElement element : engagementDesc.getAttributes()) {
+					if (element != null) {
+						if (StringUtils.equalsIgnoreCase(element.getName(), "location")) {
+							escenicLocation = element.getValue();
+						}
+					}
+				}
+			}
+		}
+		return escenicLocation;
+	}
+
+	public List<Link> mergeLinks(List<Link> existingLinks, List<Link> links) {
+		if (existingLinks != null && links != null) {
+			for (Link existinglink : existingLinks) {
+
+				boolean found = false;
+
+				for (Link link : links) {
+					if (link.equals(existinglink)) {
+						found = true;
+					}
+				}
+
+				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
+					links.add(existinglink);
+
+				}
+			}
+			return links;
+		}
+		return existingLinks;
 	}
 }

@@ -4,7 +4,6 @@ import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.standard.aspects.*;
@@ -17,23 +16,14 @@ import com.atex.onecms.content.callback.CallbackException;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
+import java.util.*;
 import java.util.List;
 
 public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 	private static EscenicArticleProcessor instance;
-
-	public EscenicArticleProcessor() {
-	}
 
 	public EscenicArticleProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);
@@ -53,19 +43,17 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	protected  String process(Entry existingEntry, OneArticleBean article,
-									final ContentResult source, String location, List<EscenicContent> escenicContentList)
+	protected String process(Entry existingEntry, OneArticleBean article, List<EscenicContent> escenicContentList, String action)
 		throws CallbackException {
 
 		if (existingEntry != null) {
 			EscenicSocialEmbedProcessor.getInstance().updateIdsForEscenicContent(existingEntry, escenicContentList);
 		}
 
-		return processArticle(article, source, existingEntry, escenicContentList, escenicConfig);
-		//source/data/aspects to get all aspects
+		return processArticle(article, existingEntry, escenicContentList, escenicConfig, action);
 	}
 
-	private String processArticle(OneArticleBean article, ContentResult source, Entry existingEntry, List<EscenicContent> escenicContentList, EscenicConfig escenicConfig) {
+	private String processArticle(OneArticleBean article, Entry existingEntry, List<EscenicContent> escenicContentList, EscenicConfig escenicConfig, String action) {
 		Entry entry = new Entry();
 		Title title = new Title();
 		title.setType("text");
@@ -73,17 +61,21 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		Payload payload = new Payload();
 		Content content = new Content();
 		Control control = new Control();
-		control.setDraft("no");
-		control.setState(setArticleState(article, existingEntry));
+
+		if (StringUtils.equalsIgnoreCase(action, EscenicProcessor.UNPUBLISH_ACTION)) {
+			control.setDraft("yes");
+			control.setState(setArticleState(article, existingEntry, UNPUBLISHED_STATE));
+		} else {
+			control.setDraft("no");
+			control.setState(setArticleState(article, existingEntry, PUBLISHED_STATE));
+		}
 
 		String embargoTime = null;
 		if (article.getTimeState() != null) {
 			long onTime = article.getTimeState().getOntime();
 			long offTime = article.getTimeState().getOfftime();
 			if (onTime > 0) {
-				//check if it's in the past?
-				//possibly need to structure it
-//				<vdf:value>2020-05-17T15:36:00Z</vdf:value>
+				//TODO check if it's in the past?
 				Date d = new Date(onTime);
 				embargoTime = d.toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
 				if (StringUtils.isNotBlank(embargoTime)) {
@@ -102,13 +94,11 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 			}
 		}
 
-		List<Field> fields = generateArticleFields(article, source, escenicContentList, existingEntry, embargoTime);
+		List<Field> fields = generateArticleFields(article, escenicContentList, embargoTime);
 		payload.setField(fields);
 		payload.setModel(escenicConfig.getModelUrl() + EscenicArticle.ARTICLE_MODEL_TYPE);
-
 		content.setPayload(payload);
 		content.setType(Content.TYPE);
-
 		entry.setContent(content);
 		entry.setControl(control);
 
@@ -122,35 +112,28 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		entry.setLink(links);
 
 		if (existingEntry != null) {
-			entry = processExistingArticle(existingEntry, entry, escenicContentList);
+			entry = processExistingArticle(existingEntry, entry);
 		}
 
 		return escenicUtils.serializeXml(entry);
 	}
 
-	private List<State> setArticleState(OneArticleBean article, Entry existingEntry) {
+	private List<State> setArticleState(OneArticleBean article, Entry existingEntry, String stateText) {
 		State state = new State();
 		State embargoState = new State();
-		state.setState("published");
-		state.setName("published");
+		state.setState(stateText);
+		state.setName(stateText);
 
-		if (article.getTimeState() != null) {
+		if (article.getTimeState() != null && StringUtils.equalsIgnoreCase("published", stateText)) {
 			if (article.getTimeState().getOntime() > 0) {
-
 				//todo add logic to remove it if offtime set?
-				//ontime present
-				embargoState.setName("pre-active");
+				embargoState.setName(PREACTIVE_STATE);
 			}
 		}
-
-
 		return Arrays.asList(state, embargoState);
 	}
 
-	private Entry processExistingArticle(Entry existingEntry, Entry entry, List<EscenicContent> escenicContentList) {
-		List<Link> existingLinks = existingEntry.getLink();
-		List<Link> links = entry.getLink();
-
+	private Entry processExistingArticle(Entry existingEntry, Entry entry) {
 		List<Field> existingFields = existingEntry.getContent().getPayload().getField();
 		List<Field> newFields = entry.getContent().getPayload().getField();
 		for (Field field : existingFields) {
@@ -160,59 +143,28 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 				}
 			}
 		}
-
-		existingEntry.setLink(entry.getLink());
 		existingEntry.setControl(entry.getControl());
-
-		if (existingLinks != null && links != null) {
-			for (Link existinglink : existingLinks) {
-
-				boolean found = false;
-
-				for (Link link : links) {
-
-					if (StringUtils.equalsIgnoreCase(existinglink.getHref(), link.getHref()) &&
-						StringUtils.equalsIgnoreCase(existinglink.getIdentifier(), link.getIdentifier()) &&
-						StringUtils.equalsIgnoreCase(existinglink.getType(), link.getType())) {
-
-						//it's the same link...
-						found = true;
-					}
-				}
-
-				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
-					links.add(existinglink);
-
-				}
-			}
-
-			existingEntry.setLink(links);
-		}
+		existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 		existingEntry.setTitle(entry.getTitle());
-
-//		for (EscenicContent escenicContent : escenicContentList) {
-//			if (escenicContent != null) {
-//				existingLinks.addAll(escenicContent.getLinks());
-//			}
-//		}
 		return existingEntry;
-
 	}
 
-	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, ContentResult source, List<EscenicContent> escenicContentList, Entry existingEntry, String embargoTime) {
+	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, List<EscenicContent> escenicContentList, String embargoTime) {
 
 		List<Field> fields = new ArrayList<Field>();
 
 		CustomArticleBean articleBean = (CustomArticleBean) oneArticleBean;
-		fields.add(escenicUtils.createField("title", (articleBean.getName()), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.getStructuredText(articleBean.getHeadline()), null, null));
 		fields.add(escenicUtils.createField("headlinePrefix", articleBean.getHeadlinePrefix(), null, null));
 		fields.add(escenicUtils.createField("articleFlagLabel", "none", null, null));
 		fields.add(escenicUtils.createField("articleLayout", articleBean.getArticleType().toLowerCase(), null, null));
-		fields.add(escenicUtils.createField("headline", escenicUtils.getStructuredText(articleBean.getSubHeadline()), null, null)); //TODO Check what needs to go in there..
+		//TODO Check what needs to go in there..
+		fields.add(escenicUtils.createField("headline", escenicUtils.getStructuredText(articleBean.getSubHeadline()), null, null));
 		fields.add(escenicUtils.createField("byline", articleBean.getByline(), null, null));
 		fields.add(escenicUtils.createField("originalSource", articleBean.getSource(), null, null));
 		fields.add(escenicUtils.createField("leadtext", escenicUtils.getStructuredText(articleBean.getLead()), null, null));
 		fields.add(escenicUtils.createField("body", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getBody()), escenicContentList), null, null));
+		fields.add(escenicUtils.createField("summary", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getSubHeadline()), null), null, null));
 		fields.add(escenicUtils.createField("summaryIcon", "automatic", null, null));
 		fields.add(escenicUtils.createField("appearInLatestNews", "true", null, null));
 		fields.add(escenicUtils.createField("appearInNLAFeed", "true", null, null));
@@ -228,12 +180,10 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 	protected EscenicContent processTopElement(ContentResult<Object> cr, ContentManager contentManager, DamEngagementUtils utils,
 											   PolicyCMServer cmServer, OneArticleBean article, Entry existingEntry,
-											   List<EscenicContent> escenicContentList, String sectionId) throws EscenicException {
+											   List<EscenicContent> escenicContentList, String sectionId, String action) throws EscenicException {
 
 		if (article != null && article.getTopElement() != null) {
 			ContentId contentId = article.getTopElement();
-
-
 			/**
 			 * This is to prevent pushing the image twice if it's both in body & set as top element as well
 			 */
@@ -267,7 +217,6 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 						if (oneImageBean != null) {
 							EscenicImage escenicImage = new EscenicImage();
-							escenicImage.setOnecmsContentId(contentId);
 							escenicImage.setTopElement(true);
 							escenicImage.setInlineElement(false);
 
@@ -275,7 +224,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							try {
 								existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
 							} catch (CMException e) {
-								e.printStackTrace();
+								throw new RuntimeException("Failed to process id from engagement : " + contentId + " - " + e);
 							}
 
 							boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
@@ -290,53 +239,19 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 									try {
 										escenicImageEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 									} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException e) {
-										e.printStackTrace();
+										throw new RuntimeException("Failed generate escenic image entry : " + e);
 									}
 								}
 							}
-							CloseableHttpResponse response = null;
-							response = EscenicImageProcessor.getInstance().processImage(contentCr, escenicImageEntry, existingEscenicLocation, cmServer, escenicConfig, escenicImage, sectionId);
 
-							EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, false, response, utils, contentCr);
+							CloseableHttpResponse response = EscenicImageProcessor.getInstance().processImage(contentCr, escenicImageEntry, existingEscenicLocation, cmServer, escenicConfig, escenicImage, sectionId);
 
-							String escenicLocation = null;
-							String escenicId = null;
-
-							if (engagementDesc != null) {
-
-								if (StringUtils.isNotBlank(engagementDesc.getAppPk())) {
-									escenicId = engagementDesc.getAppPk();
-								}
-
-								if (engagementDesc.getAttributes() != null) {
-									for (EngagementElement element : engagementDesc.getAttributes()) {
-										if (element != null) {
-											if (StringUtils.equalsIgnoreCase(element.getName(), "location")) {
-												escenicLocation = element.getValue();
-											}
-										}
-									}
-								}
-
-							} else {
-								escenicLocation = existingEscenicLocation;
-								escenicId = existingEscenicId;
-
-							}
-
-							escenicImage.setEscenicId(escenicId);
-							escenicImage.setEscenicLocation(escenicLocation);
-							//TODO hack to change the URL from what's provided to a thumbnail url --> alternative is to query for content and read it.
-							escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-							List<Link> links = escenicUtils.generateLinks(escenicImage);
-							escenicImage.setLinks(links);
-
-
+							EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, utils, contentCr, action);
+							String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+							String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
+							EscenicImageProcessor.getInstance().assignProperties(oneImageBean, escenicImage, escenicId, escenicLocation, contentId);
 							return escenicImage;
-
 						}
-
-
 					} else if (contentData instanceof DamCollectionAspectBean) {
 						DamCollectionAspectBean collectionAspectBean = (DamCollectionAspectBean) contentData;
 						if (collectionAspectBean != null) {
@@ -344,8 +259,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							try {
 								existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
 							} catch (CMException e) {
-								//TODO
-								e.printStackTrace();
+								throw new RuntimeException("Failed to retrieve existing escenic location from engagement for id: " + contentId);
 							}
 							boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
 							EscenicGallery escenicGallery = new EscenicGallery();
@@ -376,49 +290,26 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 										if (bean != null && bean instanceof OneImageBean) {
 											EscenicImage escenicImage = new EscenicImage();
-											escenicImage.setOnecmsContentId(id);
-											escenicImage = EscenicImageProcessor.getInstance().processImage(id, escenicImage, utils, collectionEscenicItems, sectionId);
+											escenicImage = EscenicImageProcessor.getInstance().processImage(id, escenicImage, utils, collectionEscenicItems, sectionId, action);
 
 											if (escenicImage != null) {
 												collectionEscenicItems.add(escenicImage);
 											} else {
 												log.error("Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
 											}
-
 										}
 									}
 								}
 							}
 
 							CloseableHttpResponse response = EscenicGalleryProcessor.getInstance().processGallery(collectionAspectBean, existingGalleryEntry, existingEscenicLocation, escenicGallery, escenicConfig, sectionId);
+							EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, utils, contentCr, action);
 
-
-							int statusCode = response.getStatusLine().getStatusCode();
-							if (statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_NO_CONTENT) {
-								String escenicLocation = null;
-								try {
-									escenicLocation = retrieveEscenicLocation(response);
-								} catch (IOException | FailedToExtractLocationException e) {
-									e.printStackTrace();
-								}
-								String escenicId = extractIdFromLocation(escenicLocation);
-								final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-								escenicGallery.setEscenicId(escenicId);
-								escenicGallery.setEscenicLocation(escenicLocation);
-								//TODO don't like this rly...
-								escenicGallery.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-								escenicGallery.setTitle(collectionAspectBean.getHeadline());
-								List<Link> links = escenicUtils.generateLinks(escenicGallery);
-								escenicGallery.setLinks(links);
-								//atempt to update the engagement
-								processEngagement(contentId, engagement, existingEscenicLocation, utils, cr);
-
-								return escenicGallery;
-							} else {
-								log.error("The server returned : " + response.getStatusLine() + " when attempting to sendimage id: " + contentId);
-							}
+							String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+							String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
+							EscenicGalleryProcessor.getInstance().assignProperties(collectionAspectBean, escenicGallery, escenicId, escenicLocation, contentId);
+							return escenicGallery;
 						}
-
 					}
 				}
 			} else {
@@ -426,9 +317,9 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 				log.error("Failed to retrieve content result");
 			}
 		}
-
 		return null;
 	}
+
 
 
 }
