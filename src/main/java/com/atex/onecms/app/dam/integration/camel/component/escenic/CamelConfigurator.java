@@ -32,10 +32,20 @@ public class CamelConfigurator implements CamelContextConfigurator {
                 new RouteBuilder() {
                     @Override
                     public void configure() throws Exception {
-                        from("seda:postToEscenic")
+                        from("seda:publishToEscenic")
                                 .process(processor);
                     }
                 }
+        );
+
+        camelContext.addRoutes(
+            new RouteBuilder() {
+                @Override
+                public void configure() throws Exception {
+                    from("seda:unpublishFromEscenic")
+                        .process(processor);
+                }
+            }
         );
     }
 

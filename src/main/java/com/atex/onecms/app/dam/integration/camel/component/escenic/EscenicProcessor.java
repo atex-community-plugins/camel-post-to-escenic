@@ -96,7 +96,13 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			EscenicContentProcessor.getInstance().process(contentId, cr, action);
 			finalResponse = Response.ok().build();
 		} catch (Exception e){
-			finalResponse = Response.serverError().entity(e.getCause() + ": " + e.getMessage()).build();
+			if (e.getCause() != null) {
+				finalResponse = Response.serverError().entity(e.getCause() + " : " + e.getMessage()).build();
+			} else {
+				finalResponse = Response.serverError().entity(e.getMessage()).build();
+			}
+
+
 			throw e;
 		} finally {
 			if (finalResponse == null) {

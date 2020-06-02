@@ -417,14 +417,14 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return location;
 	}
 
-	private String sendImage(InputStream in, String imgExt, String binaryUrl) throws EscenicResponseException {
+	private String sendImage(InputStream in, String imgExt, String binaryUrl) throws RuntimeException, EscenicResponseException {
 		HttpPost request = new HttpPost(binaryUrl);
 		InputStreamEntity entity = escenicUtils.generateImageEntity(in, imgExt);
 		request.setEntity(entity);
 		request.expectContinue();
 		request.setHeader(escenicUtils.generateAuthenticationHeader());
 		request.setHeader(escenicUtils.generateContentTypeHeader("image/" + imgExt));
-		System.out.println("Sending BINARY to escenic:" + in.toString());
+		log.debug("Sending binary image to escenic");
 
 		try {
 			CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);

@@ -2,6 +2,7 @@ package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
@@ -194,7 +195,7 @@ public class EscenicUtils {
 		return new BasicHeader(HttpHeaders.CONTENT_TYPE, contentType);
 	}
 
-	protected Header generateAuthenticationHeader() {
+	protected Header generateAuthenticationHeader() throws RuntimeException {
 		String username = escenicConfig.getUsername();
 		String password = escenicConfig.getPassword();
 
