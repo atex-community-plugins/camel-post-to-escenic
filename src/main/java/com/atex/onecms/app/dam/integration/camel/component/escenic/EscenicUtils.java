@@ -465,7 +465,7 @@ public class EscenicUtils {
 				}
 			}
 		} else {
-			//throw an error if not already thrown?
+			throw new RuntimeException("Unable to access content result");
 		}
 		return null;
 	}

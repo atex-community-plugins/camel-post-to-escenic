@@ -90,6 +90,10 @@ public class EscenicContentProcessor {
 
 	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException {
 		Object contentBean = escenicUtils.extractContentBean(contentResult);
+		if (contentBean == null) {
+			LOGGER.info("extracted content bean was null");
+			throw new RuntimeException("Unable to process item: " + IdUtil.toIdString(contentId) + " due to failure to extract content bean");
+		}
 
 		final DamEngagementUtils utils = new DamEngagementUtils(contentManager);
 		String existingEscenicLocation = null;
@@ -100,56 +104,54 @@ public class EscenicContentProcessor {
 		}
 		boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
 
-		if (contentBean != null) {
-			if (contentBean instanceof OneArticleBean) {
-				LOGGER.info("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
-				OneArticleBean article = (OneArticleBean) contentBean;
+		LOGGER.info("ContentBean type is : " + contentBean.getClass().getName());
+		if (contentBean instanceof OneArticleBean) {
+			LOGGER.info("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
+			OneArticleBean article = (OneArticleBean) contentBean;
 
-				String sectionId = extractSectionId(contentResult);
+			String sectionId = extractSectionId(contentResult);
 
-				//attempt to geenerate existing entry if location already exists
-				Entry entry = null;
-				if (isUpdate) {
-					LOGGER.info("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
-
-					entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
-
-				}
-
-				List<EscenicContent> escenicContentList = null;
-				try {
-					escenicContentList = EscenicSmartEmbedProcessor.getInstance().process(contentResult, utils, article, entry, sectionId, action);
-				} catch (IOException | URISyntaxException e) {
-					throw new RuntimeException("An error occurred while processing embedded content: " + e);
-				}
-
-				LOGGER.info("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
-
-				EscenicContent topElement = EscenicArticleProcessor.getInstance().processTopElement(contentResult, contentManager, utils, cmServer, article, entry, escenicContentList, sectionId, action);
-
-				if (topElement != null) {
-					escenicContentList.add(topElement);
-				}
-
-				article = updateArticleBodyWithOnecmsIds(escenicContentList, contentResult);
-				String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action);
-				CloseableHttpResponse response = null;
-				if (isUpdate) {
-					//the url for update is literally the location -> we should use the engagement here...?
-					response = escenicUtils.sendUpdatedContentToEscenic(existingEscenicLocation, result);
-				} else {
-					response = escenicUtils.sendNewContentToEscenic(result, sectionId);
-				}
-
-				evaluateResponse(contentId, existingEscenicLocation, extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
-
-			} else if (contentBean instanceof DamCollectionAspectBean) {
-				LOGGER.info("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
-				String sectionId = extractSectionId(contentResult);
-				EscenicGalleryProcessor.getInstance().processGallery(contentId, null, utils, sectionId, action);
-			} else {
-				throw new RuntimeException("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
+			//attempt to geenerate existing entry if location already exists
+			Entry entry = null;
+			if (isUpdate) {
+				LOGGER.info("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
+				entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 			}
+
+			List<EscenicContent> escenicContentList = null;
+			try {
+				escenicContentList = EscenicSmartEmbedProcessor.getInstance().process(contentResult, utils, article, entry, sectionId, action);
+			} catch (IOException | URISyntaxException e) {
+				throw new RuntimeException("An error occurred while processing embedded content: " + e);
+			}
+
+			LOGGER.info("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
+
+			EscenicContent topElement = EscenicArticleProcessor.getInstance().processTopElement(contentResult, contentManager, utils, cmServer, article, entry, escenicContentList, sectionId, action);
+
+			if (topElement != null) {
+				escenicContentList.add(topElement);
+			}
+
+			article = updateArticleBodyWithOnecmsIds(escenicContentList, contentResult);
+			String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action);
+			CloseableHttpResponse response = null;
+			if (isUpdate) {
+				//the url for update is literally the location -> we should use the engagement here...?
+				response = escenicUtils.sendUpdatedContentToEscenic(existingEscenicLocation, result);
+			} else {
+				response = escenicUtils.sendNewContentToEscenic(result, sectionId);
+			}
+
+			evaluateResponse(contentId, existingEscenicLocation, extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
+
+		} else if (contentBean instanceof DamCollectionAspectBean) {
+			LOGGER.info("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
+			String sectionId = extractSectionId(contentResult);
+			EscenicGalleryProcessor.getInstance().processGallery(contentId, null, utils, sectionId, action);
+		} else {
+			LOGGER.info("Attempted to send " + contentBean.getClass().getName() + " directly to escenic");
+			throw new RuntimeException("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
 		}
 	}
 
@@ -159,15 +161,7 @@ public class EscenicContentProcessor {
 		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getWebSectionDimension())) {
 			throw new RuntimeException("Web section dimension not specified in the configuration. Unable to proceed");
 		}
-
-//		https://aws-test.independent.ie/?service=SectionList
-//		https://aws-test.independent.ie/regionals/argus/?service=SectionList
-//		https://aws-test.independent.ie/regionals/sligochampion/?service=SectionList
-
-
-
 		String sectionId = null;
-		//TODO for now we'll always return a test value;
 		if (cr != null && cr.getStatus().isSuccess()) {
 			MetadataInfo metadataInfo = (MetadataInfo) cr.getContent().getAspectData(MetadataInfo.ASPECT_NAME);
 			if (metadataInfo != null) {
@@ -179,16 +173,11 @@ public class EscenicContentProcessor {
 						if (entites != null && !entites.isEmpty()) {
 							 sectionId = extractEntity(entites.get(0));
 						}
-
 					}
-
 				} else {
 					throw new RuntimeException("Failed to extract section id due to failure reading metadata");
 				}
-
 			}
-
-
 		}
 
 		String resJson = escenicUtils.retrieveSectionList(escenicConfig.getSectionListUrl()).trim();
@@ -216,7 +205,8 @@ public class EscenicContentProcessor {
 								String name = json.get("name").getAsString();
 
 
-								//hack to get it to match..
+								//TODO remove it later
+								// hack to get it to match what's in desk..
 								name = "irish " + name;
 								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
 									if (json.get("value") != null) {
@@ -229,7 +219,6 @@ public class EscenicContentProcessor {
 								}
 							}
 						}
-
 					}
 				}
 			}
