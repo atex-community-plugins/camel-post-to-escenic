@@ -148,7 +148,7 @@ public class EscenicContentProcessor {
 				String sectionId = extractSectionId(contentResult);
 				EscenicGalleryProcessor.getInstance().processGallery(contentId, null, utils, sectionId, action);
 			} else {
-				LOGGER.info("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
+				throw new RuntimeException("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
 			}
 		}
 	}
