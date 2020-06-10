@@ -75,12 +75,15 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			String contentIdString;
 			if (message.getBody() instanceof String) {
 				contentIdString = getContentId(exchange);
-			} else {
+			} else if (exchange.getIn() != null && exchange.getIn().getHeader("contentId", ContentId.class) != null){
 				contentIdString = exchange.getIn().getHeader("contentId", ContentId.class).getKey();
+			} else {
+				LOGGER.severe("Unable to get the content id for message: " + message);
+				throw new RuntimeException("Unable to get the content id for message " + message);
 			}
 
 			if (StringUtils.isNotBlank(action)) {
-				if(StringUtils.equalsIgnoreCase(action, PUBLISH_ACTION)) {
+				if (StringUtils.equalsIgnoreCase(action, PUBLISH_ACTION)) {
 					LOGGER.info("Publishing content: " + contentIdString);
 				} else if(StringUtils.equalsIgnoreCase(action, UNPUBLISH_ACTION)) {
 					LOGGER.info("Unpublishing content: " + contentIdString);
