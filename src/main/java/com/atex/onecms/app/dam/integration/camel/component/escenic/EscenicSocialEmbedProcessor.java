@@ -21,11 +21,13 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 	private static EscenicSocialEmbedProcessor instance;
 	private static final CustomEmbedParser customEmbedParser = new CustomEmbedParser();
+	private static final Logger LOGGER = Logger.getLogger(EscenicSocialEmbedProcessor.class.getName());
 
 	public EscenicSocialEmbedProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);
@@ -117,7 +119,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 				assingEmbedProperties(embedBean, onecmsId, escenicLocation, escenicId, embed.getEmbedCode(), embed.getEmbedUrl(), escenicEmbed );
 				processEngagement(escenicEmbed.getOnecmsContentId(), engagement, null, utils, embedCr);
 			} else {
-				log.error("The server returned : " + response.getStatusLine() + " when attempting to send embed id: " + escenicEmbed.getOnecmsContentId());
+				LOGGER.severe("The server returned : " + response.getStatusLine() + " when attempting to send embed id: " + escenicEmbed.getOnecmsContentId());
 				throw new RuntimeException("Received an error response from escenic: " + response.getStatusLine().getStatusCode() + " : " + response.getStatusLine().getReasonPhrase() + " - " + response.getEntity().toString());
 
 			}
@@ -321,7 +323,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 									}
 								}
 							} else {
-								log.error("was unable to process internal id within article body");
+								LOGGER.severe("was unable to process internal id within article body");
 							}
 						}
 					}

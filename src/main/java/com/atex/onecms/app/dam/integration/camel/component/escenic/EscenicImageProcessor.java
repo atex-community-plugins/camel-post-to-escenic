@@ -29,20 +29,18 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
-import org.json.JSONException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
-	protected final Logger log = LoggerFactory.getLogger(getClass());
+	private static final Logger LOGGER = Logger.getLogger(EscenicImageProcessor.class.getName());
 	private static EscenicImageProcessor instance;
 	public static long MAX_IMAGE_SIZE = 2073600;
 	private static int MAX_IMAGE_WIDTH = 1920;
@@ -186,11 +184,11 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 
 			} else {
-				log.error("Image Bean was null");
+				LOGGER.severe("Was unable to process an image: Image Bean was null");
 
 			}
 		} else {
-			log.error("Image cr was null");
+			LOGGER.severe("Was unable to process an image: content result was null");
 
 		}
 		return response;
@@ -227,7 +225,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			try {
 				MAX_IMAGE_WIDTH = Integer.parseInt(w);
 			} catch (NumberFormatException e) {
-				log.warn("Invalid value. Unable to extract max image width from config.");
+				LOGGER.warning("Invalid value. Unable to extract max image width from config.");
 			}
 		}
 
@@ -235,7 +233,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			try {
 				MAX_IMAGE_HEIGHT = Integer.parseInt(h);
 			} catch (NumberFormatException e) {
-				log.warn("Invalid value. Unable to extract max image height from config.");
+				LOGGER.warning("Invalid value. Unable to extract max image height from config.");
 			}
 		}
 	}
@@ -274,17 +272,16 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		// By default the image service will also sample the quality to .75 so, bump it to 1.0 so we do not double sample
 		final ImageServiceUrlBuilder urlBuilder = new ImageServiceUrlBuilder(cr, imageServiceConfiguration.getSecret())
 			.width(MAX_IMAGE_WIDTH)
-//			.height(MAX_IMAGE_HEIGHT)
 			.quality(IMAGE_QUALITY);
 
 		try {
 			final URL url = new URL(imageServiceUrl + urlBuilder.buildUrl());
-			log.info("Resizing image " + contentFileInfo + ", from " + url);
+			LOGGER.info("Resizing image " + contentFileInfo + ", from " + url);
 
 			final HttpResponse httpResponse = httpClient.execute(new HttpGet(url.toURI()));
 
 			final int statusCode = httpResponse.getStatusLine().getStatusCode();
-			log.info("Resizing image from " + url + " status code: " + statusCode);
+			LOGGER.info("Resizing image from " + url + " status code: " + statusCode);
 
 			if (statusCode < 200 || statusCode >= 400) {
 				throw new IOException("Resize image failed with status code: " + statusCode);
@@ -423,7 +420,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		request.expectContinue();
 		request.setHeader(escenicUtils.generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(escenicUtils.generateContentTypeHeader("image/" + imgExt));
-		log.debug("Sending binary image to escenic");
+		LOGGER.info("Sending binary image to escenic");
 
 		try {
 			CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);
@@ -561,7 +558,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 			} else {
 				//todo no image aspect means no crop info?
-				log.debug("Unable to extract crop information for content: " + content.getId());
+				LOGGER.warning("Unable to extract crop information for content: " + content.getId());
 			}
 
 
@@ -574,7 +571,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 		String value = cropsMapping.get(key);
 		if (StringUtils.isBlank(value)) {
-			log.debug("Value for key: " + key + " not found in the crop mapping. Attempting to return from defaults.");
+			LOGGER.warning("Value for key: " + key + " not found in the crop mapping. Attempting to return from defaults.");
 			return getDefaultCrop(key);
 		}
 		return value;

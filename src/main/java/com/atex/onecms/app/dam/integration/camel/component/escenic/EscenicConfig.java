@@ -9,8 +9,6 @@ import org.slf4j.LoggerFactory;
  */
 public class EscenicConfig {
 
-	protected final Logger log = LoggerFactory.getLogger(getClass());
-
 	private String apiUrl;
 	private String username;
 	private String password;

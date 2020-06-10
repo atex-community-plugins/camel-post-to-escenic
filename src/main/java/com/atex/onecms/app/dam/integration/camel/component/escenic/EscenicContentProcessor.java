@@ -35,24 +35,22 @@ import org.apache.http.Header;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class EscenicContentProcessor {
 
 
 	protected EscenicConfig escenicConfig;
 	private Caller latestCaller = null;
-	protected final Logger log = LoggerFactory.getLogger(getClass());
+	private static final Logger LOGGER = Logger.getLogger(EscenicContentProcessor.class.getName());
 	protected ContentManager contentManager;
 	protected static PolicyCMServer cmServer;
 	protected EscenicUtils escenicUtils;
@@ -104,7 +102,7 @@ public class EscenicContentProcessor {
 
 		if (contentBean != null) {
 			if (contentBean instanceof OneArticleBean) {
-				log.debug("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
+				LOGGER.info("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
 				OneArticleBean article = (OneArticleBean) contentBean;
 
 				String sectionId = extractSectionId(contentResult);
@@ -112,7 +110,7 @@ public class EscenicContentProcessor {
 				//attempt to geenerate existing entry if location already exists
 				Entry entry = null;
 				if (isUpdate) {
-					log.debug("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
+					LOGGER.info("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
 
 					entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 
@@ -125,7 +123,7 @@ public class EscenicContentProcessor {
 					throw new RuntimeException("An error occurred while processing embedded content: " + e);
 				}
 
-				log.info("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
+				LOGGER.info("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
 
 				EscenicContent topElement = EscenicArticleProcessor.getInstance().processTopElement(contentResult, contentManager, utils, cmServer, article, entry, escenicContentList, sectionId, action);
 
@@ -146,11 +144,11 @@ public class EscenicContentProcessor {
 				evaluateResponse(contentId, existingEscenicLocation, extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
 
 			} else if (contentBean instanceof DamCollectionAspectBean) {
-				log.debug("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
+				LOGGER.info("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
 				String sectionId = extractSectionId(contentResult);
 				EscenicGalleryProcessor.getInstance().processGallery(contentId, null, utils, sectionId, action);
 			} else {
-				log.warn("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
+				LOGGER.info("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
 			}
 		}
 	}
@@ -298,7 +296,7 @@ public class EscenicContentProcessor {
 							throw new RuntimeException("An error occurred while attempting to update the web attribute: " + e);
 						}
 					} else {
-						log.warn("Unable to update the web attribute due to lack of existing escenic id");
+						LOGGER.warning("Unable to update the web attribute due to lack of existing escenic id");
 					}
 				}
 
@@ -346,7 +344,7 @@ public class EscenicContentProcessor {
 			try {
 				int statusCode = result.getStatusLine().getStatusCode();
 				if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED) {
-					log.debug("Returned entity:\n" + EntityUtils.toString(result.getEntity()));
+					LOGGER.info("Returned entity:\n" + EntityUtils.toString(result.getEntity()));
 					Header header = result.getFirstHeader("Location");
 					return header.getValue();
 				} else {

@@ -16,13 +16,13 @@ import org.apache.camel.Message;
 import org.apache.camel.Processor;
 
 import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import javax.ws.rs.core.Response;
 
 import javax.servlet.ServletContext;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -39,7 +39,8 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 	private EscenicConfig escenicConfig;
 	protected static final String PUBLISH_ACTION = "publish-to-escenic";
 	protected static final String UNPUBLISH_ACTION = "unpublish-from-escenic";
-	protected final Logger log = LoggerFactory.getLogger(getClass());
+
+	private static final Logger LOGGER = Logger.getLogger(EscenicProcessor.class.getName());
 
 	private HttpFileServiceClient httpFileServiceClient;
 	private String imageServiceUrl;
@@ -47,7 +48,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 	@Override
 	public void process(final Exchange exchange) throws Exception {
-		log.debug("EscenicProcessor - start work");
+		LOGGER.info("EscenicProcessor - start work");
 		Response finalResponse = null;
 		init();
 		try {
@@ -78,9 +79,9 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 			if (StringUtils.isNotBlank(action)) {
 				if(StringUtils.equalsIgnoreCase(action, PUBLISH_ACTION)) {
-					log.info("Publishing content: " + contentIdString);
+					LOGGER.info("Publishing content: " + contentIdString);
 				} else if(StringUtils.equalsIgnoreCase(action, UNPUBLISH_ACTION)) {
-					log.info("Unpublishing content: " + contentIdString);
+					LOGGER.info("Unpublishing content: " + contentIdString);
 				}
 			}
 
@@ -88,7 +89,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			ContentResult cr = escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
 			if (cr == null) {
-				log.debug("content result was null, stopping the route.");
+				LOGGER.severe("content result was null, stopping the route.");
 				exchange.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
 				return;
 			}
@@ -97,7 +98,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 		} catch (Exception e){
 			throw e;
 		} finally {
-			log.debug("Escenic processor - end work");
+			LOGGER.info("Escenic processor - end work");
 		}
 
 	}
@@ -112,36 +113,36 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 	@Override
 	public void onAfterInit(ServletContext servletContext, String s, Application _application) {
 
-			log.debug("Initializing EscenicProcessor");
-			try {
-				if (application == null) application = _application;
-				if (contentManager == null) {
-					final RepositoryClient repoClient = (RepositoryClient) application.getApplicationComponent(RepositoryClient.DEFAULT_COMPOUND_NAME);
-					if (repoClient == null) {
-						throw new CMException("No RepositoryClient named '"
-							+ RepositoryClient.DEFAULT_COMPOUND_NAME
-							+ "' present in Application '"
-							+ application.getName() + "'");
-					}
-					contentManager = repoClient.getContentManager();
+		LOGGER.info("Initializing EscenicProcessor");
+		try {
+			if (application == null) application = _application;
+			if (contentManager == null) {
+				final RepositoryClient repoClient = (RepositoryClient) application.getApplicationComponent(RepositoryClient.DEFAULT_COMPOUND_NAME);
+				if (repoClient == null) {
+					throw new CMException("No RepositoryClient named '"
+						+ RepositoryClient.DEFAULT_COMPOUND_NAME
+						+ "' present in Application '"
+						+ application.getName() + "'");
 				}
-				if (cmClient == null) {
-					cmClient = application.getPreferredApplicationComponent(CmClient.class);;
-					if (cmClient == null) {
-						throw new CMException("No cmClient present in Application '"
-							+ application.getName() + "'");
-					}
-				}
-				if (cmServer == null) {
-					cmServer = cmClient.getPolicyCMServer();;
-				}
-
-				log.debug("Started EscenicProcessor");
-			} catch (Exception e) {
-				log.error("Cannot start EscenicProcessor: " + e.getMessage(), e);
-			} finally {
-				log.debug("EscenicProcessor complete");
+				contentManager = repoClient.getContentManager();
 			}
+			if (cmClient == null) {
+				cmClient = application.getPreferredApplicationComponent(CmClient.class);;
+				if (cmClient == null) {
+					throw new CMException("No cmClient present in Application '"
+						+ application.getName() + "'");
+				}
+			}
+			if (cmServer == null) {
+				cmServer = cmClient.getPolicyCMServer();;
+			}
+
+			LOGGER.info("Started EscenicProcessor");
+		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Cannot start EscenicProcessor: " + e.getMessage(), e);
+		} finally {
+			LOGGER.info("EscenicProcessor complete");
+		}
 	}
 
 	private void init() {
@@ -165,13 +166,13 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			try {
 				if (StringUtil.isEmpty(DamUtils.getDamUrl())) {
 					imageServiceUrl = IMAGE_SERVICE_URL_FALLBACK;
-					log.warn("desk.config.damUrl is not configured in connection.properties");
+					LOGGER.warning("desk.config.damUrl is not configured in connection.properties");
 				} else {
 					URL url = new URL(DamUtils.getDamUrl());
 					imageServiceUrl = url.getProtocol() + "://" + url.getHost() + ":" + url.getPort();
 				}
 			} catch (MalformedURLException e) {
-				log.error("Cannot configure the imageServiceUrl: " + e.getMessage());
+				LOGGER.severe("Cannot configure the imageServiceUrl: " + e.getMessage());
 				imageServiceUrl = IMAGE_SERVICE_URL_FALLBACK;
 			}
 		}

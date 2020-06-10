@@ -16,10 +16,13 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 	private static EscenicGalleryProcessor instance;
+	private static final Logger LOGGER = Logger.getLogger(EscenicGalleryProcessor.class.getName());
+
 
 	public EscenicGalleryProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);

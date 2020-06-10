@@ -1,7 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
-import com.atex.onecms.app.dam.engagement.EngagementElement;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
@@ -20,10 +19,12 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 	private static EscenicArticleProcessor instance;
+	protected static final Logger LOGGER = Logger.getLogger(EscenicArticleProcessor.class.getName());
 
 	public EscenicArticleProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
 		super(contentManager, cmServer, escenicUtils, escenicConfig);
@@ -296,7 +297,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 											if (escenicImage != null) {
 												collectionEscenicItems.add(escenicImage);
 											} else {
-												log.error("Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
+												LOGGER.severe( "Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
 											}
 										}
 									}
@@ -315,7 +316,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 				}
 			} else {
 				//content result blank or failed
-				log.error("Failed to retrieve content result");
+				LOGGER.severe("Failed to retrieve content result");
 			}
 		}
 		return null;

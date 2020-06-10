@@ -24,7 +24,6 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String SECTION_LIST_PASSWORD = "sectionListPassword";
     protected static final String SECTION_LIST_URL = "sectionListUrl";
 
-
     @Override
     protected void initSelf() {
         super.initSelf();

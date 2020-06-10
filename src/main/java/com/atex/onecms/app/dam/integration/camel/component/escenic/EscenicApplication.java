@@ -9,16 +9,14 @@ import com.polopoly.cm.ExternalContentId;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.CmClient;
 import com.polopoly.cm.policy.PolicyCMServer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletContext;
+import java.util.logging.Logger;
 
 @ApplicationInitEvent
 public class EscenicApplication implements ApplicationOnAfterInitEvent {
 
-		private static Logger log = LoggerFactory.getLogger(EscenicApplication.class);
-
+		private static final Logger LOGGER = Logger.getLogger(EscenicApplication.class.getName());
 		private static Application application;
 
 		@Override
@@ -41,7 +39,7 @@ public class EscenicApplication implements ApplicationOnAfterInitEvent {
 				return config;
 
 			} catch (CMException | IllegalApplicationStateException e) {
-				log.debug("Escenic Application: " + e.getMessage());
+				LOGGER.severe("Failed to get Escenic Application: " + e.getMessage());
 				return null;
 			}
 		}

@@ -2,7 +2,6 @@ package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
@@ -32,21 +31,13 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Entities;
-import org.jsoup.nodes.Node;
-import org.jsoup.safety.Cleaner;
-import org.jsoup.safety.Whitelist;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-
 import javax.xml.bind.*;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * @author jakub
@@ -54,7 +45,7 @@ import java.util.List;
 public class EscenicUtils {
 
 	private static String AUTH_PREFIX = "Basic ";
-	private static Logger log = LoggerFactory.getLogger(EscenicUtils.class);
+	private static final java.util.logging.Logger LOGGER = Logger.getLogger(EscenicUtils.class.getName());
 	protected EscenicConfig escenicConfig;
 	protected static final String INLINE_RELATIONS_GROUP = "com.escenic.inlineRelations";
 	protected static final String PICTURE_RELATIONS_GROUP = "pictureRel";
@@ -93,18 +84,17 @@ public class EscenicUtils {
 
 		HttpGet request = new HttpGet(location);
 
-
 		//todo escenicConfig get secrion username / pw
 		generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
 		request.setHeader(new BasicHeader(HttpHeaders.AUTHORIZATION, AUTH_PREFIX + Base64.getEncoder().encodeToString(("cannonball" + ":" + "1amaM0viefan").getBytes())));
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
-			log.debug(result.getStatusLine().getStatusCode() + " " + result.getStatusLine().toString());
 			String xml = EntityUtils.toString(result.getEntity());
+			LOGGER.info("Retrieved section list:\n" + xml);
 			return xml;
 		} catch (Exception e) {
-			log.error("An error occurred when attempting to retrieve content from escenic at location: " + location);
+			LOGGER.severe("An error occurred when attempting to retrieve content from escenic at location: " + location);
 			throw new FailedToRetrieveEscenicContentException("An error occurred when attempting to retrieve content from escenic at location: " + location + " due to : " + e);
 		} finally {
 			request.releaseConnection();
@@ -117,15 +107,14 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
-			log.debug(result.getStatusLine().getStatusCode() + " " + result.getStatusLine().toString());
 			String xml = null;
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
 			}
-
+			LOGGER.info("Retrieved section list:\n" + xml);
 			return xml;
 		} catch (Exception e) {
-			log.error("An error occurred when attempting to retrieve content from escenic at location: " + location);
+			LOGGER.severe("An error occurred when attempting to retrieve content from escenic at location: " + location);
 			throw new FailedToRetrieveEscenicContentException("An error occurred when attempting to retrieve content from escenic at location: " + location + " due to : " + e);
 		} finally {
 			request.releaseConnection();
@@ -136,12 +125,11 @@ public class EscenicUtils {
 		Entry entry = null;
 		if (StringUtils.isNotEmpty(location)) {
 			String xml = retrieveEscenicItem(location);
-			log.debug("Result on GET on location : " + location + " from escenic:\n" + xml);
+			LOGGER.info("Result on GET on location : " + location + " from escenic:\n" + xml);
 			entry = deserializeXml(xml);
 		}
 		return entry;
 	}
-
 
 	private boolean isValueEscaped(String fieldName) {
 
@@ -185,12 +173,12 @@ public class EscenicUtils {
 	}
 
 	protected String convertStructuredTextToEscenic(String structuredText, List<EscenicContent> escenicContentList) {
-		log.debug("Body before replacing embeds: " + structuredText);
+		LOGGER.info("Body before replacing embeds: " + structuredText);
 		structuredText = wrapWithDiv(structuredText);
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
 		}
-		log.debug("Body after replacing embeds: " + structuredText);
+		LOGGER.info("Body after replacing embeds: " + structuredText);
 		return structuredText;
 	}
 
@@ -257,7 +245,7 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 
-		log.debug("Sending the following xml to escenic:\n" + xmlContent);
+		LOGGER.info("Sending the following xml to escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
@@ -272,7 +260,7 @@ public class EscenicUtils {
 
 	protected void logXmlContentIfFailure(int statusCode, String xmlContent) {
 		if (statusCode != HttpStatus.SC_CREATED && statusCode != HttpStatus.SC_OK && statusCode !=HttpStatus.SC_NO_CONTENT) {
-			log.error("Failed to send the following xml:\n" + xmlContent);
+			LOGGER.severe("Failed to send the following xml:\n" + xmlContent);
 		}
 	}
 
@@ -283,7 +271,7 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 		request.setHeader(HttpHeaders.IF_MATCH, "*");
-		log.debug("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
+		LOGGER.info("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);

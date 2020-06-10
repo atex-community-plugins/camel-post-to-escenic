@@ -14,13 +14,14 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 
 	private static EscenicSmartEmbedProcessor instance;
+	private static final Logger LOGGER = Logger.getLogger(EscenicSmartEmbedProcessor.class.getName());
 
 	public EscenicSmartEmbedProcessor() {
-
 	}
 
 	public EscenicSmartEmbedProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
@@ -42,7 +43,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 
 	//todo check this!
 	protected List<EscenicContent> process(ContentResult<Object> cr,DamEngagementUtils utils, OneArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
-		log.debug("Processing smart embeds");
+		LOGGER.info("Processing smart embeds");
 		List<EscenicContent> escenicContentList = new ArrayList<>();
 		if (cr.getStatus().isSuccess()) {
 			List<CustomEmbedParser.SmartEmbed> embeds = EscenicSocialEmbedProcessor.getInstance().processEmbeds(article.getBody().getText());
@@ -68,10 +69,10 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 										if (escenicImage != null) {
 											escenicContentList.add(escenicImage);
 										} else {
-											log.error("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+											LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
 										}
 									} else {
-										log.warn("Unable to process an inline image as the onecms id was not found in embeded text");
+										LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
 									}
 
 
