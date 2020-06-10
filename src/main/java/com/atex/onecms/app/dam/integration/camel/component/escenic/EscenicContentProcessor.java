@@ -89,6 +89,7 @@ public class EscenicContentProcessor {
 	}
 
 	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException {
+		LOGGER.info("Processing content id: " + IdUtil.toIdString(contentId));
 		Object contentBean = escenicUtils.extractContentBean(contentResult);
 		if (contentBean == null) {
 			LOGGER.info("extracted content bean was null");

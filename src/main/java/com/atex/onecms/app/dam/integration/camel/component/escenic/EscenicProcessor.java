@@ -54,13 +54,15 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 		try {
 			if (cmClient == null || contentManager == null) {
 				exchange.getIn().setFault(true);
-				return;
+				LOGGER.severe("Unable to proceed - cmClient or contentManager was null, stopping the route");
+				throw new RuntimeException("Unable to proceed - cmClient or contentManager was null, stopping the route");
 			}
 
 			Message message = exchange.getIn();
 
 			if (message == null) {
 				exchange.getIn().setFault(true);
+				LOGGER.severe("Unable to proceed - message was null, stopping the route");
 				throw new RuntimeException("Unable to process action due to error: message was null");
 			}
 
@@ -96,6 +98,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 			EscenicContentProcessor.getInstance().process(contentId, cr, action);
 		} catch (Exception e){
+			LOGGER.log(Level.SEVERE, "Failed due to: " + e.getCause() + " - " + e.getMessage(), e);
 			throw e;
 		} finally {
 			LOGGER.info("Escenic processor - end work");
