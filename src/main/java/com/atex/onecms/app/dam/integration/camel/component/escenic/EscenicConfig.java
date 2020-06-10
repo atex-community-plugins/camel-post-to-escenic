@@ -19,6 +19,33 @@ public class EscenicConfig {
 	private String modelUrl;
 	private String maxImgWidth;
 	private String maxImgHeight;
+	private String sectionListUsername;
+	private String sectionListPassword;
+	private String sectionListUrl;
+
+	public String getSectionListUsername() {
+		return sectionListUsername;
+	}
+
+	public void setSectionListUsername(String sectionListUsername) {
+		this.sectionListUsername = sectionListUsername;
+	}
+
+	public String getSectionListPassword() {
+		return sectionListPassword;
+	}
+
+	public void setSectionListPassword(String sectionListPassword) {
+		this.sectionListPassword = sectionListPassword;
+	}
+
+	public String getSectionListUrl() {
+		return sectionListUrl;
+	}
+
+	public void setSectionListUrl(String sectionListUrl) {
+		this.sectionListUrl = sectionListUrl;
+	}
 
 	public String getCropsMapping() {
 		return cropsMapping;

@@ -20,6 +20,10 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String MAX_IMAGE_WIDTH = "maxImageWidth";
     protected static final String MAX_IMAGE_HEIGHT = "maxImageHeight";
     protected static final String CROPS_MAPPING = "cropsMapping";
+    protected static final String SECTION_LIST_USERNAME = "sectionListUsername";
+    protected static final String SECTION_LIST_PASSWORD = "sectionListPassword";
+    protected static final String SECTION_LIST_URL = "sectionListUrl";
+
 
     @Override
     protected void initSelf() {
@@ -62,6 +66,18 @@ public class EscenicConfigPolicy extends ContentPolicy{
         return ((SingleValuePolicy) getChildPolicy(CROPS_MAPPING)).getValue();
     }
 
+    public String getSectionListUsername() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(SECTION_LIST_USERNAME)).getValue();
+    }
+
+    public String getSectionListPassword() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(SECTION_LIST_PASSWORD)).getValue();
+    }
+
+    public String getSectionListUrl() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(SECTION_LIST_URL)).getValue();
+    }
+
     public EscenicConfig getConfig() throws CMException {
 
         EscenicConfig bean = new EscenicConfig();
@@ -74,6 +90,9 @@ public class EscenicConfigPolicy extends ContentPolicy{
         bean.setMaxImgHeight(getImageMaxHeigth());
         bean.setMaxImgWidth(getImageMaxWidth());
         bean.setCropsMapping(getCropsMapping());
+        bean.setSectionListUsername(getSectionListUsername());
+        bean.setSectionListPassword(getSectionListPassword());
+        bean.setSectionListUrl(getSectionListUrl());
         return bean;
     }
 }

@@ -57,7 +57,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		Entry entry = new Entry();
 		Title title = new Title();
 		title.setType("text");
-		title.setTitle(escenicUtils.escapeHtml(article.getName()));
+		title.setTitle(escenicUtils.removeHtmlTags(escenicUtils.getStructuredText(article.getHeadline())));
+		entry.setTitle(title);
 		Payload payload = new Payload();
 		Content content = new Content();
 		Control control = new Control();
@@ -154,7 +155,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		List<Field> fields = new ArrayList<Field>();
 
 		CustomArticleBean articleBean = (CustomArticleBean) oneArticleBean;
-		fields.add(escenicUtils.createField("title", escenicUtils.getStructuredText(articleBean.getHeadline()), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.removeHtmlTags(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
 		fields.add(escenicUtils.createField("headlinePrefix", articleBean.getHeadlinePrefix(), null, null));
 		fields.add(escenicUtils.createField("articleFlagLabel", "none", null, null));
 		fields.add(escenicUtils.createField("articleLayout", articleBean.getArticleType().toLowerCase(), null, null));

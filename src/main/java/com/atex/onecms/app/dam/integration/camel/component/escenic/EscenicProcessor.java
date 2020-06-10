@@ -94,21 +94,9 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			}
 
 			EscenicContentProcessor.getInstance().process(contentId, cr, action);
-			finalResponse = Response.ok().build();
 		} catch (Exception e){
-			if (e.getCause() != null) {
-				finalResponse = Response.serverError().entity(e.getCause() + " : " + e.getMessage()).build();
-			} else {
-				finalResponse = Response.serverError().entity(e.getMessage()).build();
-			}
-
-
 			throw e;
 		} finally {
-			if (finalResponse == null) {
-				finalResponse = Response.serverError().entity("An Unknown error occurred while processing").build();
-			}
-			exchange.getOut().setHeader("response", finalResponse);
 			log.debug("Escenic processor - end work");
 		}
 

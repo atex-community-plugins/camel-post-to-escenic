@@ -86,9 +86,35 @@ public class EscenicUtils {
 			.build();
 	}
 
+	public String retrieveSectionList(String location) throws FailedToRetrieveEscenicContentException {
+		if (StringUtils.isBlank(location)) {
+			throw new RuntimeException("Unable to read section list url from config");
+		}
+
+		HttpGet request = new HttpGet(location);
+
+
+		//todo escenicConfig get secrion username / pw
+		generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
+		request.setHeader(new BasicHeader(HttpHeaders.AUTHORIZATION, AUTH_PREFIX + Base64.getEncoder().encodeToString(("cannonball" + ":" + "1amaM0viefan").getBytes())));
+
+		try {
+			CloseableHttpResponse result = httpClient.execute(request);
+			log.debug(result.getStatusLine().getStatusCode() + " " + result.getStatusLine().toString());
+			String xml = EntityUtils.toString(result.getEntity());
+			return xml;
+		} catch (Exception e) {
+			log.error("An error occurred when attempting to retrieve content from escenic at location: " + location);
+			throw new FailedToRetrieveEscenicContentException("An error occurred when attempting to retrieve content from escenic at location: " + location + " due to : " + e);
+		} finally {
+			request.releaseConnection();
+		}
+	}
+
+
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
 		HttpGet request = new HttpGet(location);
-		request.setHeader(generateAuthenticationHeader());
+		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
 			log.debug(result.getStatusLine().getStatusCode() + " " + result.getStatusLine().toString());
@@ -110,7 +136,6 @@ public class EscenicUtils {
 		Entry entry = null;
 		if (StringUtils.isNotEmpty(location)) {
 			String xml = retrieveEscenicItem(location);
-			System.out.println(xml);
 			log.debug("Result on GET on location : " + location + " from escenic:\n" + xml);
 			entry = deserializeXml(xml);
 		}
@@ -176,6 +201,12 @@ public class EscenicUtils {
 			return "";
 	}
 
+	//remove html tags and replace non breaking spaces
+	protected String removeHtmlTags(String text) {
+		return Jsoup.parse(text.replaceAll("&nbsp;", " ")).text();
+
+	}
+
 	protected static StringEntity generateAtomEntity(String xmlContent) {
 		StringEntity entity = new StringEntity(xmlContent, StandardCharsets.UTF_8);
 		entity.setContentType(APP_ATOM_XML);
@@ -195,9 +226,9 @@ public class EscenicUtils {
 		return new BasicHeader(HttpHeaders.CONTENT_TYPE, contentType);
 	}
 
-	protected Header generateAuthenticationHeader() throws RuntimeException {
-		String username = escenicConfig.getUsername();
-		String password = escenicConfig.getPassword();
+	public Header generateAuthenticationHeader(String username, String password) throws RuntimeException {
+//		String username = escenicConfig.getUsername();
+//		String password = escenicConfig.getPassword();
 
 		if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
 			throw new RuntimeException("Unable to access username & password for escenic");
@@ -223,13 +254,14 @@ public class EscenicUtils {
 		HttpPost request = new HttpPost(url);
 		request.setEntity(generateAtomEntity(xmlContent));
 		request.expectContinue();
-		request.setHeader(generateAuthenticationHeader());
+		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 
 		log.debug("Sending the following xml to escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
+			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
 			throw new FailedToSendContentToEscenicException("Failed to send new content to escenic: " + e);
@@ -238,17 +270,24 @@ public class EscenicUtils {
 		}
 	}
 
+	protected void logXmlContentIfFailure(int statusCode, String xmlContent) {
+		if (statusCode != HttpStatus.SC_CREATED && statusCode != HttpStatus.SC_OK && statusCode !=HttpStatus.SC_NO_CONTENT) {
+			log.error("Failed to send the following xml:\n" + xmlContent);
+		}
+	}
+
 	protected CloseableHttpResponse sendUpdatedContentToEscenic(String url, String xmlContent) throws FailedToSendContentToEscenicException {
 		HttpPut request = new HttpPut(url);
 		request.setEntity(generateAtomEntity(xmlContent));
 		request.expectContinue();
-		request.setHeader(generateAuthenticationHeader());
+		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 		request.setHeader(HttpHeaders.IF_MATCH, "*");
 		log.debug("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
+			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
 			throw new FailedToSendContentToEscenicException("Failed to send an update to escenic due to: " + e);

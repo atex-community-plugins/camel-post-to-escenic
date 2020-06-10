@@ -42,6 +42,18 @@
 			<help>com.atex.plugins.camel-post-to-escenic.cropsMapping.help</help>
 			<param name="inlineHelp">true</param>
 		</field>
+		<field input-template="p.TextInput" name="sectionListUsername" label="com.atex.plugins.camel-post-to-escenic.sectionListUsername">
+			<help>com.atex.plugins.camel-post-to-escenic.sectionListUsername.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
+		<field input-template="p.TextInput" name="sectionListPassword" label="com.atex.plugins.camel-post-to-escenic.sectionListPassword">
+			<help>com.atex.plugins.camel-post-to-escenic.sectionListPassword.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
+		<field input-template="p.TextInput" name="sectionListUrl" label="com.atex.plugins.camel-post-to-escenic.sectionListUrl">
+			<help>com.atex.plugins.camel-post-to-escenic.sectionListUrl.help</help>
+			<param name="inlineHelp">true</param>
+		</field>
 		<content-xml>
 			<contentref group="plugin" name="plugindef">
 				<contentid>

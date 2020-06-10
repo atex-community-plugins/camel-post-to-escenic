@@ -10,3 +10,6 @@ component:binaryUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/es
 component:webSectionDimension:value:department.categorydimension.inm
 component:modelUrl:value:http\://inm-test-editorial.inm.lan\:8081/webservice/escenic/publication/independent/model
 component:cropsMapping:value:2x1\:wide,3x2\:landscape,1x1\:square,2x3\:portrait,default\:free
+component:sectionListUsername:value:
+component:sectionListPassword:value:
+component:sectionListUrl:value:

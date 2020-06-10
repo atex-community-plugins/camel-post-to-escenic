@@ -12,14 +12,22 @@ import com.atex.onecms.app.dam.workflow.WFContentStatusAspectBean;
 import com.atex.onecms.app.dam.workflow.WFStatusBean;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.aspects.Aspect;
+import com.atex.onecms.content.metadata.MetadataInfo;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.PolicyCMServer;
+import com.polopoly.metadata.Dimension;
+import com.polopoly.metadata.Entity;
+import com.polopoly.metadata.Metadata;
 import com.polopoly.user.server.Caller;
 import com.polopoly.user.server.UserId;
 import org.apache.commons.lang.StringUtils;
@@ -27,6 +35,9 @@ import org.apache.http.Header;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +90,7 @@ public class EscenicContentProcessor {
 		}
 	}
 
-	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException {
+	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException {
 		Object contentBean = escenicUtils.extractContentBean(contentResult);
 
 		final DamEngagementUtils utils = new DamEngagementUtils(contentManager);
@@ -146,72 +157,103 @@ public class EscenicContentProcessor {
 
 
 
-	private String extractSectionId(ContentResult cr) {
+	private String extractSectionId(ContentResult cr) throws FailedToRetrieveEscenicContentException, JSONException {
 		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getWebSectionDimension())) {
 			throw new RuntimeException("Web section dimension not specified in the configuration. Unable to proceed");
 		}
 
+//		https://aws-test.independent.ie/?service=SectionList
+//		https://aws-test.independent.ie/regionals/argus/?service=SectionList
+//		https://aws-test.independent.ie/regionals/sligochampion/?service=SectionList
+
+
+
+		String sectionId = null;
 		//TODO for now we'll always return a test value;
-		return "2";
+		if (cr != null && cr.getStatus().isSuccess()) {
+			MetadataInfo metadataInfo = (MetadataInfo) cr.getContent().getAspectData(MetadataInfo.ASPECT_NAME);
+			if (metadataInfo != null) {
+				Metadata metadata = metadataInfo.getMetadata();
+				if (metadata != null) {
+					Dimension dim = metadata.getDimensionById(escenicConfig.getWebSectionDimension());
+					if (dim != null) {
+						List<Entity> entites =  dim.getEntities();
+						if (entites != null && !entites.isEmpty()) {
+							 sectionId = extractEntity(entites.get(0));
+						}
 
-//		if (cr != null && cr.getStatus().isSuccess()) {
-//			MetadataInfo metadataInfo = (MetadataInfo) cr.getContent().getAspectData(MetadataInfo.ASPECT_NAME);
-//			if (metadataInfo != null) {
-//				Metadata metadata = metadataInfo.getMetadata();
-//				if (metadata != null) {
-//					Dimension dim = metadata.getDimensionById(escenicConfig.getWebSectionDimension());
-//					if (dim != null) {
-//						List<Entity> entites =  dim.getEntities();
-//						//TODO
-////						"dimensions": [
-////						{
-////							"name": "Web Section",
-////							"id": "department.categorydimension.inm",
-////							"entities": [
-////							{
-////								"name": "Belfast Telegraph",
-////								"id": "Belfast Telegraph",
-////								"attributes": [],
-////								"entities": [
-////								{
-////									"name": "Sunday Life",
-////									"id": "Belfast Telegraph.Sunday Life",
-////									"attributes": [],
-////									"entities": [
-////									{
-////										"name": "Bar Person Of The Year Awards",
-////										"id": "Belfast Telegraph.Sunday Life.Bar Person Of The Year Awards",
-////										"attributes": [],
-////										"entities": [],
-////										"childrenOmitted": false,
-////										"localizations": {}
-////									}
-////                      ],
-////									"childrenOmitted": false,
-////									"localizations": {}
-////								}
-////                  ],
-////								"childrenOmitted": false,
-////								"localizations": {}
-////							}
-////              ],
-////							"enumerable": true,
-////							"localizations": {}
-////						},
-//
-//
-//					}
-//
-//				} else {
-//					throw new RuntimeException("Failed to extract section id due to failure reading metadata");
-//				}
-//
-//			}
-//
+					}
 
-//		}
+				} else {
+					throw new RuntimeException("Failed to extract section id due to failure reading metadata");
+				}
+
+			}
 
 
+		}
+
+		String resJson = escenicUtils.retrieveSectionList(escenicConfig.getSectionListUrl()).trim();
+
+		if (StringUtils.isBlank(resJson)) {
+			throw new RuntimeException("Failed to retrieve section mapping");
+		}
+
+		JsonObject jsonObject = null;
+		jsonObject = new Gson().fromJson(resJson,JsonObject.class);
+
+		if (jsonObject != null) {
+
+			JsonArray sections = jsonObject.getAsJsonArray("sections");
+			if (sections != null) {
+				Iterator<JsonElement> iterator = sections.iterator();
+				while(iterator.hasNext()) {
+					JsonElement obj = iterator.next();
+					if (obj != null) {
+						JsonObject json = obj.getAsJsonObject();
+						if (json != null) {
+
+							if (json.get("name") != null) {
+
+								String name = json.get("name").getAsString();
+
+
+								//hack to get it to match..
+								name = "irish " + name;
+								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
+									if (json.get("value") != null) {
+										String value = json.get("value").getAsString();
+										return value;
+									} else {
+										throw new RuntimeException("Unable to resolve the ID for web section: " + sectionId);
+									}
+
+								}
+							}
+						}
+
+					}
+				}
+			}
+		}
+
+		throw new RuntimeException("Unable to resolve the ID for web section");
+
+	}
+
+	private String extractEntity(Entity entity) {
+		if (entity != null) {
+
+			if (entity.getEntities() != null && entity.getEntities().size() == 0) {
+				return entity.getId();
+			} else if (entity.getEntities() != null) {
+				return extractEntity(entity.getEntities().get(0));
+			} else {
+				throw new RuntimeException("Failed to get entities: ");
+			}
+		} else {
+			throw new RuntimeException("Unable to extract section id from content");
+		}
 	}
 
 	protected EngagementDesc evaluateResponse(ContentId contentId, String existingEscenicLocation, String existingEscenicId,

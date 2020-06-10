@@ -16,6 +16,7 @@ import com.atex.onecms.image.Rectangle;
 import com.atex.onecms.ws.image.ImageServiceConfiguration;
 import com.atex.onecms.ws.image.ImageServiceConfigurationProvider;
 import com.atex.onecms.ws.image.ImageServiceUrlBuilder;
+import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.HttpFileServiceClient;
 import com.polopoly.cm.policy.PolicyCMServer;
@@ -29,7 +30,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
 import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +46,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	private static EscenicImageProcessor instance;
 	public static long MAX_IMAGE_SIZE = 2073600;
 	private static int MAX_IMAGE_WIDTH = 1920;
-	private static int MAX_IMAGE_HEIGHT = 1080;
+	private static int MAX_IMAGE_HEIGHT = 1600;
 	private static double IMAGE_QUALITY = 0.75d;
 
 	protected static final String EDIT_MEDIA_RELATIONSHIP = "edit-media";
@@ -55,7 +55,6 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	private Map<String, String> cropsMapping;
 	private static final Pattern DOUBLE_SLASH_PATTERN = Pattern.compile("/*/");
 	HttpFileServiceClient httpFileServiceClient;
-
 
 
 
@@ -275,7 +274,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		// By default the image service will also sample the quality to .75 so, bump it to 1.0 so we do not double sample
 		final ImageServiceUrlBuilder urlBuilder = new ImageServiceUrlBuilder(cr, imageServiceConfiguration.getSecret())
 			.width(MAX_IMAGE_WIDTH)
-			.height(MAX_IMAGE_HEIGHT)
+//			.height(MAX_IMAGE_HEIGHT)
 			.quality(IMAGE_QUALITY);
 
 		try {
@@ -422,7 +421,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		InputStreamEntity entity = escenicUtils.generateImageEntity(in, imgExt);
 		request.setEntity(entity);
 		request.expectContinue();
-		request.setHeader(escenicUtils.generateAuthenticationHeader());
+		request.setHeader(escenicUtils.generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(escenicUtils.generateContentTypeHeader("image/" + imgExt));
 		log.debug("Sending binary image to escenic");
 
@@ -473,7 +472,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	protected List<Field> generateImageFields(OneImageBean oneImageBean, Content source, String location, ImageEditInfoAspectBean imageEditInfoAspectBean) {
 		List<Field> fields = new ArrayList<Field>();
-		JSONObject crops = extractCrops(source, imageEditInfoAspectBean);
+		JsonObject crops = extractCrops(source, imageEditInfoAspectBean);
 		if (crops != null) {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
@@ -526,32 +525,32 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		escenicImage.setLinks(links);
 	}
 
-	private JSONObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) throws RuntimeException {
+	private JsonObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) throws RuntimeException {
 		if (content != null) {
 			if (imageEditInfoAspectBean != null) {
 				Map<String, CropInfo> crops = imageEditInfoAspectBean.getCrops();
 				if (crops != null) {
-					JSONObject obj = new JSONObject();
+					JsonObject obj = new JsonObject();
 					for (Map.Entry<String, CropInfo> entry : crops.entrySet()) {
 						String key = entry.getKey();
 						CropInfo value = entry.getValue();
 
 						if (StringUtils.isNotBlank(key) && value != null) {
 
-							JSONObject cropObject = new JSONObject();
+							JsonObject cropObject = new JsonObject();
 
 							Rectangle cropRectangle = value.getCropRectangle();
 							if (cropRectangle != null) {
-								JSONObject crop = new JSONObject();
+								JsonObject crop = new JsonObject();
 								try {
-									crop.put("x", cropRectangle.getX());
-									crop.put("y", cropRectangle.getY());
-									crop.put("height", cropRectangle.getHeight());
-									crop.put("width", cropRectangle.getWidth());
-									crop.put("auto", false);
-									cropObject.put("crop", crop);
-									obj.put(getCropKey(key), cropObject);
-								} catch (JSONException e) {
+									crop.addProperty("x", cropRectangle.getX());
+									crop.addProperty("y", cropRectangle.getY());
+									crop.addProperty("height", cropRectangle.getHeight());
+									crop.addProperty("width", cropRectangle.getWidth());
+									crop.addProperty("auto", false);
+									cropObject.add("crop", crop);
+									obj.add(getCropKey(key), cropObject);
+								} catch(Exception e) {
 									throw new RuntimeException("Failed to generate crops : " + e);
 								}
 							}
