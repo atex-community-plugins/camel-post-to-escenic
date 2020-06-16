@@ -296,6 +296,8 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				.map(Integer::parseInt)
 				.orElse(0);
 
+			LOGGER.info("Image after resizing width: " + newWidth + " and height: " + newHeight);
+
 			final float widthRatio =  (float) newWidth / dimensions.getWidth();
 			final float heightRatio = (float) newHeight / dimensions.getHeight();
 
@@ -500,8 +502,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 					if (StringUtils.equalsIgnoreCase(imgExt, "jpg")) {
 						imgExt = "jpeg";
 					}
-
 				}
+			}
+
+			if (!StringUtils.equalsIgnoreCase(imgExt, "jpeg") || !StringUtils.equalsIgnoreCase(imgExt, "gif") || !StringUtils.equalsIgnoreCase(imgExt, "png")) {
+				//default value in case the extracted value is invalid
+				imgExt = "jpeg";
 			}
 
 			link.setType("image/" + imgExt);

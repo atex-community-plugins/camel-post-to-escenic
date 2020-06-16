@@ -1,6 +1,6 @@
-id:.
+id:plugins.com.atex.plugins.camel-post-to-escenic.EscenicConfigHome.default
 major:AppConfig
-inputtemplate:com.atex.plugins.camel-post-to-escenic.Configuration
+inputtemplate:com.atex.plugins.camel-post-to-escenic.EscenicConfigTemplate
 securityparent:p.siteengine.Configuration.d
 component:polopoly.Content:name:Camel Post To Escenic Configuration
 component:user:value:

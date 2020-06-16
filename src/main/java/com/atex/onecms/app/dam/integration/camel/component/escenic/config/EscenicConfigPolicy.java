@@ -5,12 +5,20 @@ import com.polopoly.cm.app.policy.SingleValuePolicy;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.ContentPolicy;
 import com.polopoly.model.DescribesModelType;
+import com.polopoly.cm.ExternalContentId;
+import com.polopoly.cm.client.ContentRead;
+
 
 @DescribesModelType
 public class EscenicConfigPolicy extends ContentPolicy{
 
-    public static final String CONFIG_EXTERNAL_ID = "plugins.com.atex.plugins.camel-post-to-escenic.Config";
+	public static final String CONFIG_EXTERNAL_ID = "plugins.com.atex.plugins.camel-post-to-escenic.EscenicConfigHome";
+	public static final String DEFAULT_CONFIG_EXTERNAL_ID = "plugins.com.atex.plugins.camel-post-to-escenic.EscenicConfigHome.default";
 
+
+	public static String useDefault = "false";
+
+	private static final String DEFAULT_VALUE = "useDefault";
     protected static final String USERNAME = "username";
     protected static final String PASSWORD = "password";
     protected static final String API_URL = "apiUrl";
@@ -28,6 +36,32 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected void initSelf() {
         super.initSelf();
     }
+
+	@Override
+	public void preCommitSelf() throws CMException {
+		super.preCommitSelf();
+		useDefault = getUseDefault();
+		if (useDefault == "true") {
+			final String contentIdToUse = DEFAULT_CONFIG_EXTERNAL_ID;
+			final ContentRead content = this.getCMServer().getContent(new ExternalContentId(contentIdToUse));
+			String[] componentList = content.getComponentGroupNames();
+			for (String componentName : componentList) {
+				if (componentName != "useDefault") {
+					String[] propertyNames = content.getComponentNames(componentName);
+					for (String propertyName : propertyNames) {
+						String propertyValue = content.getComponent(componentName, propertyName);
+						this.setComponent(componentName, propertyName, propertyValue);
+					}
+				}
+			}
+		}
+	}
+
+	public String getUseDefault() throws CMException {
+		final SingleValuePolicy checkBoxPolicy = (SingleValuePolicy) getChildPolicy(DEFAULT_VALUE);
+		final String useDefaultData = checkBoxPolicy.getValue();
+		return useDefaultData;
+	}
 
     public String getUsername() throws CMException {
         return ((SingleValuePolicy) getChildPolicy(USERNAME)).getValue();

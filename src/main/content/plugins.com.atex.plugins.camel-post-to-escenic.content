@@ -1,0 +1,4 @@
+id:plugins.com.atex.plugins.camel-post-to-escenic.EscenicConfigHome
+major:AppConfig
+inputtemplate:com.atex.plugins.camel-post-to-escenic.EscenicConfigTemplate
+securityparent:p.siteengine.Configuration.d

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template-definition version="1.0" xmlns="http://www.polopoly.com/polopoly/cm/app/xml">
+   <input-template name="com.atex.plugins.camel-post-to-escenic.EscenicConfigTemplate" label="com.atex.plugins.camel-post-to-escenic.EscenicConfigTemplate">
+    <policy>com.atex.onecms.app.dam.integration.camel.component.escenic.config.EscenicConfigPolicy</policy>
+    <editor>com.polopoly.cm.app.widget.OTopPolicyWidget</editor>
+    <viewer>com.polopoly.cm.app.widget.OTopPolicyWidget</viewer>
+    <type>AppConfig</type>
+    <param name="ViewState_insert">false</param>
+    <param name="EditState_saveAndClose">true</param>
+    <param name="EditState_saveAndInsert">false</param>
+    <param name="EditState_saveAndFastInsert">false</param>
+    <param name="EditState_saveAndView">true</param>
+    <param name="EditNewState_saveAndClose">false</param>
+    <param name="EditNewState_saveAndInsert">false</param>
+    <param name="EditNewState_saveAndFastInsert">true</param>
+    <param name="EditNewState_saveAndView">false</param>
+    <param name="renderTemplateIconInSelect">true</param>
+    <layout name="menu" input-template="p.PageMenu">
+      <layout name="general" input-template="p.Page" label="cm.general.General">
+        <field name="useDefault" input-template="p.Checkbox" label="com.atex.plugins.camel-post-to-escenic.useDefault" required="false"/>
+          <field input-template="p.TextInput" name="username" label="com.atex.plugins.camel-post-to-escenic.username">
+              <help>com.atex.plugins.camel-post-to-escenic.username.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="password" label="com.atex.plugins.camel-post-to-escenic.password">
+              <help>com.atex.plugins.camel-post-to-escenic.password.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="apiUrl" label="com.atex.plugins.camel-post-to-escenic.apiUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.apiUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="binaryUrl" label="com.atex.plugins.camel-post-to-escenic.binaryUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.binaryUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="modelUrl" label="com.atex.plugins.camel-post-to-escenic.modelUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.modelUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="webSectionDimension" label="com.atex.plugins.camel-post-to-escenic.webSectionDimension">
+              <help>com.atex.plugins.camel-post-to-escenic.webSectionDimension.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="maxImageWidth" label="com.atex.plugins.camel-post-to-escenic.maxImageWidth">
+              <help>com.atex.plugins.camel-post-to-escenic.maxImageWidth.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+
+          <field input-template="p.TextInput" name="maxImageHeight" label="com.atex.plugins.camel-post-to-escenic.maxImageHeight">
+              <help>com.atex.plugins.camel-post-to-escenic.maxImageHeight.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="cropsMapping" label="com.atex.plugins.camel-post-to-escenic.cropsMapping">
+              <help>com.atex.plugins.camel-post-to-escenic.cropsMapping.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="sectionListUsername" label="com.atex.plugins.camel-post-to-escenic.sectionListUsername">
+              <help>com.atex.plugins.camel-post-to-escenic.sectionListUsername.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="sectionListPassword" label="com.atex.plugins.camel-post-to-escenic.sectionListPassword">
+              <help>com.atex.plugins.camel-post-to-escenic.sectionListPassword.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="sectionListUrl" label="com.atex.plugins.camel-post-to-escenic.sectionListUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.sectionListUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+      </layout>
+    </layout>
+  </input-template>
+</template-definition>
