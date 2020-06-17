@@ -203,6 +203,15 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 										return null;
 									}
 								}
+
+								if (escenicContent instanceof EscenicGallery) {
+									EscenicGallery gallery = (EscenicGallery) escenicContent;
+
+									if (gallery != null) {
+										gallery.setTopElement(true);
+										return null;
+									}
+								}
 							}
 						}
 					}
