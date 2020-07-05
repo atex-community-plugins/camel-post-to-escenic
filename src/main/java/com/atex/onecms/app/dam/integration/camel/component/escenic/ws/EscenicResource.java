@@ -197,6 +197,9 @@ public class EscenicResource {
 
 		try {
 			xml = escenicUtils.retrieveEscenicItem(getEscenicConfig().getContentUrl() + escenicId);
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("retrieved content for preview generation:\n" + xml);
+			}
 			Entry entry = escenicUtils.deserializeXml(xml);
 
 			if (entry != null) {

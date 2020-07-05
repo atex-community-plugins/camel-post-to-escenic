@@ -7,7 +7,7 @@ import java.util.List;
  *
  * @author jakub
  */
-@XmlRootElement(name="entry")
+@XmlRootElement(name="entry", namespace="http://www.w3.org/2005/Atom")
 public class Entry {
 	private Title title;
 	private String id;

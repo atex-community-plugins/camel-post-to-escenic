@@ -81,6 +81,10 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 			escenicContentReference.setEscenicId(externalReferenceBean.getExternalReferenceId());
 			escenicContentReference.setTitle(externalReferenceBean.getTitle());
 
+			if (StringUtils.isNotBlank(externalReferenceBean.getThumbnailUrl())) {
+				escenicContentReference.setThumbnailUrl(externalReferenceBean.getThumbnailUrl());
+			}
+
 			escenicContentReference.setOnecmsContentId(contentId);
 			List<Link> links = escenicUtils.generateLinks(escenicContentReference);
 			escenicContentReference.setLinks(links);
