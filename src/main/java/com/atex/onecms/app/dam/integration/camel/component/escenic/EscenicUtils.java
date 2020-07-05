@@ -784,18 +784,20 @@ public class EscenicUtils {
 		html = html.replaceAll("&nbsp;", "");
 		if (StringUtils.isNotBlank(html)) {
 			Element document = Jsoup.parse(html).body();
-			for (Element element : document.children()) {
-				if (StringUtils.equalsIgnoreCase(element.nodeName(), "p" )) {
-					if (StringUtils.isNotBlank(element.text())) {
+			if (document != null) {
+				for (Element element : document.children()) {
+					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
+						if (StringUtils.isNotBlank(element.text())) {
 
-						return element.text();
+							return element.text();
+						}
 					}
-				}
 
-			}
-			Element e = document.select("p").first();
-			if (StringUtils.isNotBlank(e.text())) {
-				return e.text();
+				}
+				Element element = document.select("p").first();
+				if (element != null && StringUtils.isNotBlank(element.text())) {
+					return element.text();
+				}
 			}
 
 			return "";
