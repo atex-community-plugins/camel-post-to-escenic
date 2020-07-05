@@ -48,7 +48,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 	@Override
 	public void process(final Exchange exchange) throws Exception {
-		LOGGER.info("EscenicProcessor - start work");
+		LOGGER.finest("EscenicProcessor - start work");
 		Response finalResponse = null;
 		init();
 		try {
@@ -102,7 +102,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			LOGGER.log(Level.SEVERE, "Failed due to: " + e.getCause() + " - " + e.getMessage(), e);
 			throw e;
 		} finally {
-			LOGGER.info("Escenic processor - end work");
+			LOGGER.finest("Escenic processor - end work");
 		}
 
 	}
@@ -117,7 +117,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 	@Override
 	public void onAfterInit(ServletContext servletContext, String s, Application _application) {
 
-		LOGGER.info("Initializing EscenicProcessor");
+		LOGGER.finest("Initializing EscenicProcessor");
 		try {
 			if (application == null) application = _application;
 			if (contentManager == null) {
@@ -141,11 +141,11 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 				cmServer = cmClient.getPolicyCMServer();;
 			}
 
-			LOGGER.info("Started EscenicProcessor");
+			LOGGER.finest("Started EscenicProcessor");
 		} catch (Exception e) {
 			LOGGER.log(Level.SEVERE, "Cannot start EscenicProcessor: " + e.getMessage(), e);
 		} finally {
-			LOGGER.info("EscenicProcessor complete");
+			LOGGER.finest("EscenicProcessor complete");
 		}
 	}
 
@@ -187,6 +187,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 		EscenicSmartEmbedProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
 		EscenicSocialEmbedProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
 		EscenicArticleProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
+		EscenicRelatedContentProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
 	}
 
 }

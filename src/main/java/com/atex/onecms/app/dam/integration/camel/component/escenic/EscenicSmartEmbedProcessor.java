@@ -2,7 +2,7 @@ package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
-import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.standard.aspects.CustomArticleBean;
 import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.Content;
@@ -41,20 +41,14 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	//todo check this!
-	protected List<EscenicContent> process(ContentResult<Object> cr,DamEngagementUtils utils, OneArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
-		LOGGER.info("Processing smart embeds");
+	protected List<EscenicContent> process(ContentResult<Object> cr, DamEngagementUtils utils, CustomArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
+		LOGGER.finest("Processing smart embeds");
 		List<EscenicContent> escenicContentList = new ArrayList<>();
 		if (cr.getStatus().isSuccess()) {
 			List<CustomEmbedParser.SmartEmbed> embeds = EscenicSocialEmbedProcessor.getInstance().processEmbeds(article.getBody().getText());
 			Content c = cr.getContent();
 			if (c != null) {
 
-				List<Link> links = null;
-				if (entry != null && entry.getLink() != null) {
-					links = entry.getLink();
-				}
-				//at this stage we assume that content does not exist in escenic.. wrong assumption?
 				for (CustomEmbedParser.SmartEmbed embed : embeds) {
 					if (embed != null) {
 
@@ -63,7 +57,6 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 								case EscenicImage.IMAGE_TYPE:
 									if (embed.getContentId() != null) {
 										EscenicImage escenicImage = new EscenicImage();
-//										escenicImage.setOnecmsContentId(embed.getContentId());
 										escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, utils, escenicContentList, sectionId, action);
 
 										if (escenicImage != null) {
@@ -94,28 +87,18 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
 										escenicContentList.add(escenicEmbed);
 									} else {
-//										boolean found = false;
-//										for (Link link : links) {
-//											if (StringUtils.isNotEmpty(embed.getEscenicId()) && StringUtils.equalsIgnoreCase(link.getIdentifier(), embed.getEscenicId())) {
-//												EscenicEmbed escenicEmbed = new EscenicEmbed();
-//												escenicEmbed.setEscenicLocation(link.getHref());
-//												escenicEmbed.setEscenicId(link.getIdentifier());
-//												escenicEmbed.setEmbedCode(embed.getEmbedCode());
-//												escenicEmbed.setEmbedUrl(embed.getEmbedUrl());
-//												escenicEmbed.setLinks(Arrays.asList(link));
-//												escenicContentList.add(escenicEmbed);
-//												found = true;
-//												break;
-//											}
-//										}
-
-//										if (!found) {
-											//we're dealing with new embed instead..
 											EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
 											escenicContentList.add(escenicEmbed);
-//										}
 									}
 
+									break;
+
+								//workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.
+								//once we load them individually by onecms id, we can pick up their actual type in escenic for further processing
+								case EscenicArticle.ARTICLE_TYPE:
+
+									EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed);
+									escenicContentList.add(escenicContentReference);
 									break;
 							}
 						}
@@ -135,20 +118,9 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		return null;
 	}
 
-
-	/**
-	 * Constructing an atom entry for binary file:
-	 * curl --include -u jwojcik@atex.com:4l+rUbruQE -X POST -H "Content-Type: application/atom+xml" http://inm-test-editorial.inm.lan:8081/webservice/escenic/section/1/content-items --upload-file imageatom.xml
-	 * <p>
-	 * //	 * @param binaryLocation
-	 *
-	 * @return
-	 */
 	private String constructAtomEntryForSocialEmbed(EscenicEmbed escenicEmbed, CustomEmbedParser.SmartEmbed socialEmbed, EscenicConfig escenicConfig) {
 		Entry entry = new Entry();
-		Title title = new Title();
-		title.setType("text");
-		title.setTitle(escenicEmbed.getTitle());
+		Title title = escenicUtils.createTitle(socialEmbed.getSocialNetwork(), "text");
 		entry.setTitle(title);
 		Payload payload = new Payload();
 		com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content content = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content();
@@ -173,7 +145,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		embedDetailsFields.add(escenicUtils.createField("url", socialEmbed.getEmbedUrl(), null, null));
 		embedDetailsFields.add(escenicUtils.createField("embedCode", escenicUtils.wrapWithCDATA(socialEmbed.getEmbedCode()), null, null));
 		embedFields.add(escenicUtils.createField("socialEmbeds", null, embedDetailsFields, null));
-		embedFields.add(escenicUtils.createField("title", escenicEmbed.getTitle(), null, null));
+		embedFields.add(escenicUtils.createField("title", socialEmbed.getSocialNetwork(), null, null));
 		p.setField(embedFields);
 		com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.List();
 		list.setPayload(p);

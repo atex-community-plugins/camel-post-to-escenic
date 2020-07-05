@@ -44,7 +44,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	protected String process(Entry existingEntry, OneArticleBean article, List<EscenicContent> escenicContentList, String action)
+	protected String process(Entry existingEntry, CustomArticleBean article, List<EscenicContent> escenicContentList, String action)
 		throws CallbackException {
 
 		if (existingEntry != null) {
@@ -54,12 +54,13 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		return processArticle(article, existingEntry, escenicContentList, escenicConfig, action);
 	}
 
-	private String processArticle(OneArticleBean article, Entry existingEntry, List<EscenicContent> escenicContentList, EscenicConfig escenicConfig, String action) {
+	private String processArticle(CustomArticleBean article, Entry existingEntry, List<EscenicContent> escenicContentList, EscenicConfig escenicConfig, String action) {
+
 		Entry entry = new Entry();
-		Title title = new Title();
-		title.setType("text");
-		title.setTitle(escenicUtils.removeHtmlTags(escenicUtils.getStructuredText(article.getHeadline())));
+		Title title = escenicUtils.createTitle(escenicUtils.getStructuredText(article.getHeadline()), "text");
+		Summary summary = escenicUtils.createSummary(escenicUtils.getStructuredText(article.getSubHeadline()), "text");
 		entry.setTitle(title);
+		entry.setSummary(summary);
 		Payload payload = new Payload();
 		Content content = new Content();
 		Control control = new Control();
@@ -82,6 +83,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 				embargoTime = d.toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
 				if (StringUtils.isNotBlank(embargoTime)) {
 					entry.setAvailable(embargoTime);
+					entry.setPublished(embargoTime);
 				}
 			}
 
@@ -148,6 +150,9 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		existingEntry.setControl(entry.getControl());
 		existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 		existingEntry.setTitle(entry.getTitle());
+		existingEntry.setAvailable(entry.getAvailable());
+		existingEntry.setExpires(entry.getExpires());
+		existingEntry.setSummary(entry.getSummary());
 		return existingEntry;
 	}
 
@@ -156,25 +161,16 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		List<Field> fields = new ArrayList<Field>();
 
 		CustomArticleBean articleBean = (CustomArticleBean) oneArticleBean;
-		fields.add(escenicUtils.createField("title", escenicUtils.removeHtmlTags(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeHtml(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
 		fields.add(escenicUtils.createField("headlinePrefix", articleBean.getHeadlinePrefix(), null, null));
-		fields.add(escenicUtils.createField("articleFlagLabel", "none", null, null));
+		fields.add(escenicUtils.createField("articleFlagLabel", articleBean.getKeywords(), null, null));
 		fields.add(escenicUtils.createField("articleLayout", articleBean.getArticleType().toLowerCase(), null, null));
-		//TODO Check what needs to go in there..
-		fields.add(escenicUtils.createField("headline", escenicUtils.getStructuredText(articleBean.getSubHeadline()), null, null));
 		fields.add(escenicUtils.createField("byline", articleBean.getByline(), null, null));
 		fields.add(escenicUtils.createField("originalSource", articleBean.getSource(), null, null));
-		fields.add(escenicUtils.createField("leadtext", escenicUtils.getStructuredText(articleBean.getLead()), null, null));
+		fields.add(escenicUtils.createField("leadtext", escenicUtils.getFirstBodyParagraph(articleBean.getBody()), null, null));
 		fields.add(escenicUtils.createField("body", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getBody()), escenicContentList), null, null));
 		fields.add(escenicUtils.createField("summary", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getSubHeadline()), null), null, null));
-		fields.add(escenicUtils.createField("summaryIcon", "automatic", null, null));
-		fields.add(escenicUtils.createField("appearInLatestNews", "true", null, null));
-		fields.add(escenicUtils.createField("appearInNLAFeed", "true", null, null));
-		fields.add(escenicUtils.createField("premium", String.valueOf(articleBean.isPremiumContent()), null, null));
-
-		if (StringUtils.isNotBlank(embargoTime)) {
-			fields.add(escenicUtils.createField("displayDate", embargoTime, null, null));
-		}
+		fields.add(escenicUtils.createField("subscriptionProtected", articleBean.getSponsorname(), null, null));
 
 		return fields;
 	}
@@ -244,7 +240,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							String existingEscenicId = null;
 							if (isUpdate) {
 								//load image + merge it with existing image and send an update? + process the response?
-								existingEscenicId = extractIdFromLocation(existingEscenicLocation);
+								existingEscenicId = escenicUtils.extractIdFromLocation(existingEscenicLocation);
 								if (StringUtils.isNotEmpty(existingEscenicId)) {
 
 									try {
@@ -281,7 +277,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							String existingEscenicId = null;
 							Entry existingGalleryEntry = null;
 							if (isUpdate) {
-								existingEscenicId = extractIdFromLocation(existingEscenicLocation);
+								existingEscenicId = escenicUtils.extractIdFromLocation(existingEscenicLocation);
 								if (StringUtils.isNotEmpty(existingEscenicId)) {
 									try {
 										existingGalleryEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);

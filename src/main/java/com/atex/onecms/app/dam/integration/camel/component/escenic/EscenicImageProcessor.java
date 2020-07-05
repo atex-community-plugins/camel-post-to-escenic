@@ -9,13 +9,11 @@ import com.atex.onecms.app.dam.util.ImageUtils;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.Content;
 import com.atex.onecms.content.files.FileService;
-import com.atex.onecms.image.CropInfo;
-import com.atex.onecms.image.ImageEditInfoAspectBean;
-import com.atex.onecms.image.ImageInfoAspectBean;
-import com.atex.onecms.image.Rectangle;
+import com.atex.onecms.image.*;
 import com.atex.onecms.ws.image.ImageServiceConfiguration;
 import com.atex.onecms.ws.image.ImageServiceConfigurationProvider;
 import com.atex.onecms.ws.image.ImageServiceUrlBuilder;
+import com.atex.plugins.baseline.util.MimeUtil;
 import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.HttpFileServiceClient;
@@ -42,9 +40,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	private static final Logger LOGGER = Logger.getLogger(EscenicImageProcessor.class.getName());
 	private static EscenicImageProcessor instance;
-	public static long MAX_IMAGE_SIZE = 2073600;
-	private static int MAX_IMAGE_WIDTH = 1920;
-	private static int MAX_IMAGE_HEIGHT = 1600;
+	private static int MAX_IMAGE_WIDTH = 16000;
 	private static double IMAGE_QUALITY = 0.75d;
 
 	protected static final String EDIT_MEDIA_RELATIONSHIP = "edit-media";
@@ -123,7 +119,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			Entry escenicImageEntry = null;
 			String existingEscenicId = null;
 			if (isUpdate) {
-				existingEscenicId = extractIdFromLocation(existingEscenicLocation);
+				existingEscenicId = escenicUtils.extractIdFromLocation(existingEscenicLocation);
 				if (StringUtils.isNotEmpty(existingEscenicId)) {
 
 					try {
@@ -219,7 +215,6 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	private void updateMaxImageSize() {
 		String w = escenicConfig.getMaxImgWidth();
-		String h = escenicConfig.getMaxImgHeight();
 
 		if (StringUtils.isNotBlank(w)) {
 			try {
@@ -229,15 +224,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			}
 		}
 
-		if (StringUtils.isNotBlank(h)) {
-			try {
-				MAX_IMAGE_HEIGHT = Integer.parseInt(h);
-			} catch (NumberFormatException e) {
-				LOGGER.warning("Invalid value. Unable to extract max image height from config.");
-			}
-		}
 	}
-
 
 	protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
 													ContentResult<R> cr,
@@ -417,11 +404,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	private String sendImage(InputStream in, String imgExt, String binaryUrl) throws RuntimeException, EscenicResponseException {
 		HttpPost request = new HttpPost(binaryUrl);
-		InputStreamEntity entity = escenicUtils.generateImageEntity(in, imgExt);
+		String mimeType = MimeUtil.getMimeType(imgExt).orElse(null);
+		InputStreamEntity entity = escenicUtils.generateImageEntity(in, mimeType);
 		request.setEntity(entity);
 		request.expectContinue();
 		request.setHeader(escenicUtils.generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
-		request.setHeader(escenicUtils.generateContentTypeHeader("image/" + imgExt));
+		request.setHeader(escenicUtils.generateContentTypeHeader(mimeType));
 		LOGGER.info("Sending binary image to escenic");
 
 		try {
@@ -444,13 +432,8 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean, Entry existingImgEntry, Content cresultContent, String binaryLocation, EscenicConfig escenicConfig, ImageEditInfoAspectBean imageEditInfoAspectBean) {
 		if (oneImageBean != null) {
 			Entry entry = new Entry();
-			Title title = new Title();
-			title.setType("text");
-			if (StringUtils.isEmpty(oneImageBean.getName())) {
-				title.setTitle("No Name");
-			} else {
-				title.setTitle(oneImageBean.getName());
-			}
+			Title title = escenicUtils.createTitle(oneImageBean.getTitle(), "text");
+			entry.setTitle(title);
 
 			Payload payload = new Payload();
 			com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content content = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content();
@@ -476,17 +459,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
 
-		fields.add(escenicUtils.createField("name", oneImageBean.getName(), null, null));
-		if (StringUtils.isEmpty(oneImageBean.getName())) {
-			fields.add(escenicUtils.createField("title", "No Name", null, null));
-		} else {
-			fields.add(escenicUtils.createField("title", oneImageBean.getName(), null, null));
-		}
-
+		fields.add(escenicUtils.createField("title", oneImageBean.getTitle(), null, null));
 		fields.add(escenicUtils.createField("description", oneImageBean.getDescription(), null, null));
+		fields.add(escenicUtils.createField("photographer", oneImageBean.getCredit(), null, null));
 		fields.add(escenicUtils.createField("caption", oneImageBean.getCaption(), null, null));
-		fields.add(escenicUtils.createField("photographer", oneImageBean.getAuthor(), null, null));
-		fields.add(escenicUtils.createField("copyright", oneImageBean.getCredit(), null, null));
 
 		if (StringUtils.isNotBlank(location)) {
 			Link link = new Link();
@@ -562,15 +538,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 					return obj;
 				}
-			} else {
-				//todo no image aspect means no crop info?
-				LOGGER.warning("Unable to extract crop information for content: " + content.getId());
 			}
-
-
 		}
 		return null;
-
 	}
 
 	private String getCropKey(String key) {

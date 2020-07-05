@@ -1,28 +1,34 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import com.atex.gong.utils.WsErrorUtil;
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.ws.EscenicResource;
 import com.atex.onecms.app.dam.standard.aspects.*;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.repository.StorageException;
-import com.atex.plugins.baseline.util.MimeUtil;
+import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.plugins.structured.text.StructuredText;
 import com.google.common.base.CharMatcher;
+
 import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
@@ -31,12 +37,30 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
 import javax.xml.bind.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -75,7 +99,25 @@ public class EscenicUtils {
 			.disableContentCompression()
 			.setDefaultRequestConfig(config)
 			.build();
+		LOGGER.setLevel(Level.FINEST);
 	}
+
+	//TODO - REMOVE LATER - temporarily load from content rather than through web service call
+	public String retrieveSectionListFromContent(ContentManager contentManager) throws ErrorResponseException {
+		final ContentVersionId versionId = contentManager.resolve("escenic.section.mappings.list.configuration", Subject.NOBODY_CALLER);
+		final ContentResult<ConfigurationDataBean> cr = contentManager.get(versionId, ConfigurationDataBean.class, Subject.NOBODY_CALLER);
+		if (cr.getStatus().isError()) {
+			throw WsErrorUtil.error("cannot get configuration", cr.getStatus());
+		}
+		final ConfigurationDataBean contentData = cr.getContent().getContentData();
+		if (contentData.getJson() != null) {
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Retrieved section list:\n" + contentData.getJson());
+			}
+		}
+		return contentData.getJson();
+	}
+
 
 	public String retrieveSectionList(String location) throws FailedToRetrieveEscenicContentException {
 		if (StringUtils.isBlank(location)) {
@@ -83,15 +125,19 @@ public class EscenicUtils {
 		}
 
 		HttpGet request = new HttpGet(location);
-
-		//todo escenicConfig get secrion username / pw
-		generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
-		request.setHeader(new BasicHeader(HttpHeaders.AUTHORIZATION, AUTH_PREFIX + Base64.getEncoder().encodeToString(("cannonball" + ":" + "1amaM0viefan").getBytes())));
+		Header authHeader = generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
+		request.setHeader(authHeader);
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
-			String xml = EntityUtils.toString(result.getEntity());
-			LOGGER.info("Retrieved section list:\n" + xml);
+			String xml = null;
+			if (result.getEntity() != null) {
+				xml = EntityUtils.toString(result.getEntity());
+			}
+
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Retrieved section list:\n" + xml);
+			}
 			return xml;
 		} catch (Exception e) {
 			LOGGER.severe("An error occurred when attempting to retrieve content from escenic at location: " + location);
@@ -111,7 +157,10 @@ public class EscenicUtils {
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
 			}
-			LOGGER.info("Retrieved section list:\n" + xml);
+
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Retrieved escenic item:\n" + xml);
+			}
 			return xml;
 		} catch (Exception e) {
 			LOGGER.severe("An error occurred when attempting to retrieve content from escenic at location: " + location);
@@ -125,7 +174,9 @@ public class EscenicUtils {
 		Entry entry = null;
 		if (StringUtils.isNotEmpty(location)) {
 			String xml = retrieveEscenicItem(location);
-			LOGGER.info("Result on GET on location : " + location + " from escenic:\n" + xml);
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Result on GET on location : " + location + " from escenic:\n" + xml);
+			}
 			entry = deserializeXml(xml);
 		}
 		return entry;
@@ -139,6 +190,8 @@ public class EscenicUtils {
 				case "embedCode":
 				case "autocrop":
 				case "summary":
+				case "title":
+				case "headline":
 					return true;
 				default:
 					return false;
@@ -173,12 +226,18 @@ public class EscenicUtils {
 	}
 
 	protected String convertStructuredTextToEscenic(String structuredText, List<EscenicContent> escenicContentList) {
-		LOGGER.info("Body before replacing embeds: " + structuredText);
-		structuredText = wrapWithDiv(structuredText);
+		if (LOGGER.isLoggable(Level.FINEST)) {
+			LOGGER.finest("Body before replacing embeds: " + structuredText);
+		}
+
+		structuredText = replaceNonBreakingSpaces(wrapWithDiv(structuredText));
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
 		}
-		LOGGER.info("Body after replacing embeds: " + structuredText);
+
+		if (LOGGER.isLoggable(Level.FINEST)) {
+			LOGGER.finest("Body after replacing embeds: " + structuredText);
+		}
 		return structuredText;
 	}
 
@@ -191,7 +250,25 @@ public class EscenicUtils {
 
 	//remove html tags and replace non breaking spaces
 	protected String removeHtmlTags(String text) {
-		return Jsoup.parse(text.replaceAll("&nbsp;", " ")).text();
+		if (StringUtils.isNotBlank(text)) {
+			text = replaceNonBreakingSpaces(text);
+			org.jsoup.nodes.Document d = Jsoup.parse(replaceNonBreakingSpaces(text));
+			d.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+			return d.text();
+		}
+		return text;
+
+	}
+
+	//remove html tags and replace non breaking spaces
+	protected String replaceNonBreakingSpaces(String text) {
+		if (StringUtils.isNotBlank(text)) {
+			text = text.replaceAll("/\\\\u009/g", "");
+			text = text.replaceAll("\t", "");
+
+			return text.replaceAll("&nbsp;", " ");
+		}
+		return text;
 
 	}
 
@@ -201,8 +278,7 @@ public class EscenicUtils {
 		return entity;
 	}
 
-	protected InputStreamEntity generateImageEntity(InputStream in, String imgExt) {
-		String mimeType = MimeUtil.getMimeType(imgExt).orElse(null);
+	protected InputStreamEntity generateImageEntity(InputStream in, String mimeType) {
 		final ContentType contentType = ContentType.create(
 			Optional.ofNullable(mimeType)
 				.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
@@ -215,9 +291,6 @@ public class EscenicUtils {
 	}
 
 	public Header generateAuthenticationHeader(String username, String password) throws RuntimeException {
-//		String username = escenicConfig.getUsername();
-//		String password = escenicConfig.getPassword();
-
 		if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
 			throw new RuntimeException("Unable to access username & password for escenic");
 		}
@@ -245,7 +318,9 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 
-		LOGGER.info("Sending the following xml to escenic:\n" + xmlContent);
+		if (LOGGER.isLoggable(Level.FINEST)) {
+			LOGGER.finest("Sending the following xml to escenic:\n" + xmlContent);
+		}
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
@@ -271,7 +346,10 @@ public class EscenicUtils {
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 		request.setHeader(HttpHeaders.IF_MATCH, "*");
-		LOGGER.info("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
+
+		if (LOGGER.isLoggable(Level.FINEST)) {
+			LOGGER.finest("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
+		}
 
 		try {
 			CloseableHttpResponse result = httpClient.execute(request);
@@ -284,7 +362,7 @@ public class EscenicUtils {
 		}
 	}
 
-	protected static Entry deserializeXml(String xml) throws FailedToDeserializeContentException {
+	public static Entry deserializeXml(String xml) throws FailedToDeserializeContentException {
 		Entry entry = null;
 		try {
 			JAXBContext jaxbContext = JAXBContext.newInstance(Entry.class);
@@ -423,6 +501,19 @@ public class EscenicUtils {
 				if (link != null) {
 					links.add(link);
 				}
+			} else if (escenicContent instanceof EscenicContentReference) {
+				EscenicContentReference escenicContentReference = (EscenicContentReference) escenicContent;
+				List<Field> fields = new ArrayList<>();
+				fields.add(createField("title", escenicContentReference.getTitle(), null, null));
+
+				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, "/content-summary/" + escenicContentReference.getType(),
+					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
+					escenicContentReference.getTitle(), PUBLISHED_STATE);
+
+				if (link != null) {
+					links.add(link);
+				}
+
 			}
 		}
 
@@ -451,8 +542,8 @@ public class EscenicUtils {
 		return link;
 	}
 
-	protected static String escapeHtml(String text) {
-		return StringEscapeUtils.escapeHtml(text);
+	protected String escapeHtml(String text) {
+		return StringEscapeUtils.escapeXml10(removeHtmlTags(text));
 	}
 
 	protected static Object extractContentBean(ContentResult contentCr) {
@@ -541,5 +632,231 @@ public class EscenicUtils {
 			return links;
 		}
 		return existingLinks;
+	}
+
+	public String extractIdFromLocation(String escenicLocation) {
+		String id = null;
+		if (StringUtils.isNotEmpty(escenicLocation)) {
+			id = escenicLocation.substring(escenicLocation.lastIndexOf('/') + 1);
+		}
+
+		return id;
+	}
+
+	public String createSearchGroups(String xml) throws EscenicException {
+		try {
+			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+			Document doc = docBuilder.parse(new InputSource(new StringReader(xml)));
+			Node feed = doc.getFirstChild();
+			NodeList list  = feed.getChildNodes();
+			Node currentGroupNode = null;
+			for (int i=0; i < list.getLength(); i++) {
+				Node node = list.item(i);
+				if (node != null) {
+					if (StringUtils.equalsIgnoreCase(node.getNodeName(), "facet:group")) {
+						currentGroupNode = node;
+					}
+
+					if (StringUtils.equalsIgnoreCase(node.getNodeName(), "opensearch:query")) {
+						if (currentGroupNode != null) {
+							currentGroupNode.appendChild(node);
+							currentGroupNode.appendChild(doc.createTextNode("\n"));
+						}
+					}
+				}
+			}
+
+			StringWriter stringWriter = new StringWriter();
+			TransformerFactory transformerFactory = TransformerFactory.newInstance();
+			Transformer transformer = transformerFactory.newTransformer();
+			DOMSource source = new DOMSource(doc);
+			transformer.transform(source,  new StreamResult(stringWriter));
+			return stringWriter.getBuffer().toString();
+		} catch (ParserConfigurationException | TransformerException | IOException | SAXException e) {
+			throw new EscenicException("Failed to process the response to search query" + e);
+		}
+	}
+
+	public void processSearchInfo(Feed feed) throws URISyntaxException {
+		if (feed != null) {
+			List<Link> links = feed.getLink();
+
+			if (links != null) {
+				for (Link link : links) {
+					processPageInfo(feed, link);
+				}
+			}
+		}
+	}
+
+	private void processPageInfo(Feed feed, Link link) throws URISyntaxException {
+		if (link != null) {
+			String rel = link.getRel();
+			if (StringUtils.isNotBlank(link.getHref())) {
+				List<NameValuePair> params = URLEncodedUtils.parse(new URI(link.getHref()), "UTF-8");
+				if (params != null) {
+					if (StringUtils.isNotBlank(rel)) {
+						switch (rel.toLowerCase()) {
+							case "self":
+								for (NameValuePair param : params) {
+									if (StringUtils.equalsIgnoreCase(param.getName(), "pw")) {
+										feed.setSelfPageNumber(param.getValue());
+									} else if (StringUtils.equalsIgnoreCase(param.getName(), "c")) {
+										feed.setSelfItemCount(param.getValue());
+									}
+								}
+								break;
+							case "first":
+								for (NameValuePair param : params) {
+									if (StringUtils.equalsIgnoreCase(param.getName(), "pw")) {
+										feed.setFirstPageNumber(param.getValue());
+									} else if (StringUtils.equalsIgnoreCase(param.getName(), "c")) {
+										feed.setFirstItemCount(param.getValue());
+									}
+								}
+								break;
+							case "next":
+								for (NameValuePair param : params) {
+									if (StringUtils.equalsIgnoreCase(param.getName(), "pw")) {
+										feed.setNextPageNumber(param.getValue());
+									} else if (StringUtils.equalsIgnoreCase(param.getName(), "c")) {
+										feed.setNextItemCount(param.getValue());
+									}
+								}
+								break;
+							case "last":
+								for (NameValuePair param : params) {
+									if (StringUtils.equalsIgnoreCase(param.getName(), "pw")) {
+										feed.setLastPageNumber(param.getValue());
+									} else if (StringUtils.equalsIgnoreCase(param.getName(), "c")) {
+										feed.setLastItemCount(param.getValue());
+									}
+								}
+								break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public void processFacetInfo(Feed feed) {
+		if (feed != null) {
+			List<Group> filteredGroups = new ArrayList<Group>();
+			if (feed.getGroup() != null) {
+				for (Group group : feed.getGroup()) {
+					if (group != null) {
+						if (!StringUtils.equalsIgnoreCase(group.getTitle(), "creationdate") && !StringUtils.equalsIgnoreCase(group.getTitle(), "publishdate")) {
+							Group facetGroup = new Group();
+							facetGroup.setTitle(group.getTitle());
+							List<Query> queries = new ArrayList<>();
+							if (group.getQuery() != null) {
+								for (Query query : group.getQuery()) {
+									String[] relatedArray = query.getRelated().split(" ");
+									if (relatedArray != null && relatedArray.length > 0) {
+										query.setRelated(relatedArray[relatedArray.length - 1]);
+									}
+									queries.add(query);
+								}
+								facetGroup.setQuery(queries);
+							}
+							filteredGroups.add(facetGroup);
+						} else {
+							filteredGroups.add(group);
+						}
+					}
+				}
+			}
+
+			if (!filteredGroups.isEmpty()) {
+				feed.setGroup(filteredGroups);
+			}
+		}
+	}
+
+	public String getFirstBodyParagraph(StructuredText body) {
+		String html = getStructuredText(body);
+		html = html.replaceAll("&nbsp;", "");
+		if (StringUtils.isNotBlank(html)) {
+			Element document = Jsoup.parse(html).body();
+			for (Element element : document.children()) {
+				if (StringUtils.equalsIgnoreCase(element.nodeName(), "p" )) {
+					if (StringUtils.isNotBlank(element.text())) {
+
+						return element.text();
+					}
+				}
+
+			}
+			Element e = document.select("p").first();
+			if (StringUtils.isNotBlank(e.text())) {
+				return e.text();
+			}
+
+			return "";
+
+		}
+
+		return "";
+
+	}
+
+	public boolean isUpdateAllowed(Entry entry) {
+		if (entry != null) {
+
+			//i.e. throw an error and give up publishing
+			//return false;
+		}
+
+		return true;
+
+	}
+
+	public Title createTitle(String value, String type) {
+		Title title = new Title();
+		title.setType(type);
+		title.setTitle(escapeHtml(value));
+		return title;
+	}
+
+	public Summary createSummary(String value, String type) {
+		Summary summary = new Summary();
+		summary.setType(type);
+		summary.setSummary(escapeHtml(value));
+		return summary;
+	}
+
+
+	public String getQuery(String query){
+		if (StringUtils.isBlank(query)) {
+			query = EscenicResource.DEFAULT_QUERY;
+		} else {
+
+			//process the query part here:
+			String[] terms = query.split(" ");
+			if (terms != null && terms.length > 1) {
+				query = "((" + query + ")";
+				for (int i=0; i < terms.length; i++){
+					String s = terms[i];
+					if (StringUtils.isNotBlank(s)) {
+						if (i == 0) {
+							query += " OR ((";
+						} else {
+							query += " (";
+						}
+
+						query += s + " OR " + s + "*)";
+
+						if (terms.length-1 == i) {
+							query += "))";
+						}
+					}
+				}
+			} else {
+				query = "((" + query + ") OR (" + query + " OR " + query + "*))";
+			}
+		}
+		return query;
 	}
 }

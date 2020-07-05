@@ -31,6 +31,8 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String SECTION_LIST_USERNAME = "sectionListUsername";
     protected static final String SECTION_LIST_PASSWORD = "sectionListPassword";
     protected static final String SECTION_LIST_URL = "sectionListUrl";
+	protected static final String CONTENT_URL = "contentUrl";
+	protected static final String ESCENIC_TOP_LEVEL_SEARCH_URL = "escenicTopLevelSearchUrl";
 
     @Override
     protected void initSelf() {
@@ -111,6 +113,14 @@ public class EscenicConfigPolicy extends ContentPolicy{
         return ((SingleValuePolicy) getChildPolicy(SECTION_LIST_URL)).getValue();
     }
 
+	public String getContentUrl() throws CMException {
+		return ((SingleValuePolicy) getChildPolicy(CONTENT_URL)).getValue();
+	}
+
+	public String getEscenicTopLevelSearchUrl() throws CMException {
+		return ((SingleValuePolicy) getChildPolicy(ESCENIC_TOP_LEVEL_SEARCH_URL)).getValue();
+	}
+
     public EscenicConfig getConfig() throws CMException {
 
         EscenicConfig bean = new EscenicConfig();
@@ -126,6 +136,8 @@ public class EscenicConfigPolicy extends ContentPolicy{
         bean.setSectionListUsername(getSectionListUsername());
         bean.setSectionListPassword(getSectionListPassword());
         bean.setSectionListUrl(getSectionListUrl());
+        bean.setContentUrl(getContentUrl());
+        bean.setEscenicTopLevelSearchUrl(getEscenicTopLevelSearchUrl());
         return bean;
     }
 }

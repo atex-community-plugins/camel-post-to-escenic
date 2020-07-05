@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<batch xmlns="http://www.polopoly.com/polopoly/cm/xmlio">
+
+  <content clear="true">
+    <metadata>
+      <contentid>
+        <major>AppConfig</major>
+        <externalid>atex.onecms.factory-CrossSearchProviderEscenic</externalid>
+      </contentid>
+      <security-parent>
+        <externalid>p.onecms.CrossSearchProvidersList</externalid>
+      </security-parent>
+      <input-template>
+        <externalid>atex.onecms.OneCMSSettings.it</externalid>
+      </input-template>
+    </metadata>
+
+    <component group="polopoly.Content" name="name">Escenic Cross Search Provider</component>
+    <file name="factory.js" encoding="relative">cross-search-provider-escenic/factory.js</file>
+  </content>
+
+  <content clear="false">
+    <metadata>
+      <contentid>
+        <externalid>p.onecms.CrossSearchProvidersList</externalid>
+      </contentid>
+    </metadata>
+    <contentlist mode="modify">
+      <entry withMetadata="false" mode="modify">
+        <metadata>
+          <referredContent>
+            <contentid>
+              <externalid>atex.onecms.factory-CrossSearchProviderEscenic</externalid>
+            </contentid>
+          </referredContent>
+        </metadata>
+      </entry>
+    </contentlist>
+  </content>
+
+</batch>

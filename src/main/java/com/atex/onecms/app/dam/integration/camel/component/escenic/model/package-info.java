@@ -7,7 +7,11 @@
 		@XmlNs(prefix = "metadata", namespaceURI = "http://xmlns.escenic.com/2010/atom-metadata"),
 		@XmlNs(prefix = "dcterms", namespaceURI = "http://purl.org/dc/terms/"),
 		@XmlNs(prefix = "vaext", namespaceURI = "http://www.vizrt.com/atom-ext"),
-		@XmlNs(prefix = "age", namespaceURI = "http://purl.org/atompub/age/1.0")
+		@XmlNs(prefix = "age", namespaceURI = "http://purl.org/atompub/age/1.0"),
+		@XmlNs(prefix = "opensearch", namespaceURI = "http://a9.com/-/spec/opensearch/1.1/"),
+		@XmlNs(prefix = "facet", namespaceURI = "http://xmlns.escenic.com/2015/facet"),
+		@XmlNs(prefix = "semantic", namespaceURI = "http://a9.com/-/opensearch/extensions/semantic/1.0/"),
+		@XmlNs(prefix = "dt", namespaceURI = "http://a9.com/-/opensearch/extensions/time/1.0/")
 	}
 )
 

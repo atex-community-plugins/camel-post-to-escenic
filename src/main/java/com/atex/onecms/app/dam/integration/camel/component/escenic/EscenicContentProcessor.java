@@ -10,11 +10,14 @@ import com.atex.onecms.app.dam.types.TimeState;
 import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.app.dam.workflow.WFContentStatusAspectBean;
 import com.atex.onecms.app.dam.workflow.WFStatusBean;
+import com.atex.onecms.app.dam.workflow.WebContentStatusAspectBean;
 import com.atex.onecms.content.*;
 import com.atex.onecms.content.aspects.Aspect;
 import com.atex.onecms.content.metadata.MetadataInfo;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
+import com.atex.onecms.ws.service.ErrorResponseException;
+import com.atex.workflow.WebStatusUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -42,7 +45,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class EscenicContentProcessor {
@@ -92,7 +94,7 @@ public class EscenicContentProcessor {
 		LOGGER.info("Processing content id: " + IdUtil.toIdString(contentId));
 		Object contentBean = escenicUtils.extractContentBean(contentResult);
 		if (contentBean == null) {
-			LOGGER.info("extracted content bean was null");
+			LOGGER.warning("extracted content bean was null");
 			throw new RuntimeException("Unable to process item: " + IdUtil.toIdString(contentId) + " due to failure to extract content bean");
 		}
 
@@ -105,18 +107,23 @@ public class EscenicContentProcessor {
 		}
 		boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
 
-		LOGGER.info("ContentBean type is : " + contentBean.getClass().getName());
+		LOGGER.finest("ContentBean type is : " + contentBean.getClass().getName());
 		if (contentBean instanceof OneArticleBean) {
-			LOGGER.info("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
-			OneArticleBean article = (OneArticleBean) contentBean;
+			LOGGER.finest("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
+
+			CustomArticleBean article = (CustomArticleBean) contentBean;
 
 			String sectionId = extractSectionId(contentResult);
 
 			//attempt to geenerate existing entry if location already exists
 			Entry entry = null;
 			if (isUpdate) {
-				LOGGER.info("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
+				LOGGER.finest("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
 				entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
+				//TODO allowAtexUpdatesFlag
+//				if (escenicUtils.isUpdateAllowed(entry)) {
+//					throw new EscenicException("AllowAtexUpdates flag was set to false in escenic - unable to send an update to content");
+//				}
 			}
 
 			List<EscenicContent> escenicContentList = null;
@@ -126,7 +133,7 @@ public class EscenicContentProcessor {
 				throw new RuntimeException("An error occurred while processing embedded content: " + e);
 			}
 
-			LOGGER.info("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
+			LOGGER.finest("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
 
 			EscenicContent topElement = EscenicArticleProcessor.getInstance().processTopElement(contentResult, contentManager, utils, cmServer, article, entry, escenicContentList, sectionId, action);
 
@@ -144,19 +151,17 @@ public class EscenicContentProcessor {
 				response = escenicUtils.sendNewContentToEscenic(result, sectionId);
 			}
 
-			evaluateResponse(contentId, existingEscenicLocation, extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
+			evaluateResponse(contentId, existingEscenicLocation, escenicUtils.extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
 
 		} else if (contentBean instanceof DamCollectionAspectBean) {
-			LOGGER.info("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
+			LOGGER.finest("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
 			String sectionId = extractSectionId(contentResult);
 			EscenicGalleryProcessor.getInstance().processGallery(contentId, null, utils, sectionId, action);
 		} else {
-			LOGGER.info("Attempted to send " + contentBean.getClass().getName() + " directly to escenic");
+			LOGGER.severe("Attempted to send " + contentBean.getClass().getName() + " directly to escenic");
 			throw new RuntimeException("Unable to process content id: " + IdUtil.toIdString(contentId) + " to escenic - due to its content type");
 		}
 	}
-
-
 
 	private String extractSectionId(ContentResult cr) throws FailedToRetrieveEscenicContentException, JSONException {
 		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getWebSectionDimension())) {
@@ -180,15 +185,20 @@ public class EscenicContentProcessor {
 				}
 			}
 		}
+		//todo add it back in once we get the mappings via the web service
+//		String resJson = escenicUtils.retrieveSectionList(escenicConfig.getSectionListUrl()).trim();
 
-		String resJson = escenicUtils.retrieveSectionList(escenicConfig.getSectionListUrl()).trim();
-
+		String resJson = null;
+		try {
+			resJson = escenicUtils.retrieveSectionListFromContent(contentManager);
+		} catch (ErrorResponseException e) {
+			LOGGER.severe("exception occurred while reading section list from content:" + e);
+		}
 		if (StringUtils.isBlank(resJson)) {
 			throw new RuntimeException("Failed to retrieve section mapping");
 		}
 
-		JsonObject jsonObject = null;
-		jsonObject = new Gson().fromJson(resJson,JsonObject.class);
+		JsonObject jsonObject = new Gson().fromJson(resJson,JsonObject.class);
 
 		if (jsonObject != null) {
 
@@ -204,11 +214,6 @@ public class EscenicContentProcessor {
 							if (json.get("name") != null) {
 
 								String name = json.get("name").getAsString();
-
-
-								//TODO remove it later
-								// hack to get it to match what's in desk..
-								name = "irish " + name;
 								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
 									if (json.get("value") != null) {
 										String value = json.get("value").getAsString();
@@ -257,31 +262,34 @@ public class EscenicContentProcessor {
 				} catch (IOException | FailedToExtractLocationException e) {
 					e.printStackTrace();
 				}
-				escenicId = extractIdFromLocation(escenicLocation);
+				escenicId = escenicUtils.extractIdFromLocation(escenicLocation);
 				if (StringUtils.isBlank(escenicId)) {
 					throw new RuntimeException("Extracted escenic id is blank for location: " + escenicLocation);
 				}
 				WFContentStatusAspectBean wfContentStatusAspectBean = null;
+				WebContentStatusAspectBean webContentStatusAspectBean = null;
 				if (updateWebAttribute) {
 					try {
 						wfContentStatusAspectBean = getUpdatedStatusWithAttribute(cr, action);
+						webContentStatusAspectBean = getUpdatedWebStatus(cr, action);
 					} catch (ContentModifiedException e) {
 						throw new RuntimeException("An error occurred while attempting to update the web attribute: " + e);
 					}
 				}
 
-
-				final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-				processEngagement(contentId, engagement, null, utils, cr, wfContentStatusAspectBean);
+				final EngagementDesc engagement = createEngagementObject(escenicId);
+				processEngagement(contentId, engagement, null, utils, cr, wfContentStatusAspectBean, webContentStatusAspectBean);
 				return engagement;
 
 			} else if (statusCode == HttpStatus.SC_NO_CONTENT) {
 				//ensure the status is online
-				WFContentStatusAspectBean wfContentStatusAspectBean=null;
+				WFContentStatusAspectBean wfContentStatusAspectBean = null;
+				WebContentStatusAspectBean webContentStatusAspectBean = null;
 				if (updateWebAttribute) {
 					if (StringUtils.isNotBlank(existingEscenicId)) {
 						try {
 							wfContentStatusAspectBean = getUpdatedStatusWithAttribute(cr, action);
+							webContentStatusAspectBean = getUpdatedWebStatus(cr, action);
 						} catch (ContentModifiedException e) {
 							throw new RuntimeException("An error occurred while attempting to update the web attribute: " + e);
 						}
@@ -291,8 +299,8 @@ public class EscenicContentProcessor {
 				}
 
 				if (StringUtils.isNotBlank(existingEscenicLocation) && StringUtils.isNotBlank(existingEscenicId)) {
-					final EngagementDesc engagement = createEngagementObject(existingEscenicId, existingEscenicLocation, getCurrentCaller());
-					processEngagement(contentId, engagement, existingEscenicLocation, utils, cr, wfContentStatusAspectBean);
+					final EngagementDesc engagement = createEngagementObject(existingEscenicId);
+					processEngagement(contentId, engagement, existingEscenicLocation, utils, cr, wfContentStatusAspectBean, webContentStatusAspectBean );
 				}
 
 			} else {
@@ -320,21 +328,12 @@ public class EscenicContentProcessor {
 		return null;
 	}
 
-	protected String extractIdFromLocation(String escenicLocation) {
-		String id = null;
-		if (StringUtils.isNotEmpty(escenicLocation)) {
-			id = escenicLocation.substring(escenicLocation.lastIndexOf('/') + 1);
-		}
-
-		return id;
-	}
-
 	protected String retrieveEscenicLocation(CloseableHttpResponse result) throws IOException, FailedToExtractLocationException {
 		if (result != null) {
 			try {
 				int statusCode = result.getStatusLine().getStatusCode();
 				if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED) {
-					LOGGER.info("Returned entity:\n" + EntityUtils.toString(result.getEntity()));
+					LOGGER.finest("Returned entity:\n" + EntityUtils.toString(result.getEntity()));
 					Header header = result.getFirstHeader("Location");
 					return header.getValue();
 				} else {
@@ -348,10 +347,11 @@ public class EscenicContentProcessor {
 	}
 
 	protected void processEngagement(ContentId contentId, EngagementDesc engagement, String existingEscenicLocation, DamEngagementUtils utils, ContentResult cr) {
-		processEngagement(contentId, engagement, existingEscenicLocation, utils, cr, null);
+		processEngagement(contentId, engagement, existingEscenicLocation, utils, cr, null, null);
 	}
 
-	protected void processEngagement(ContentId contentId, EngagementDesc engagement, String existingEscenicLocation, DamEngagementUtils utils, ContentResult cr, WFContentStatusAspectBean wfContentStatusAspectBean) {
+	protected void processEngagement(ContentId contentId, EngagementDesc engagement, String existingEscenicLocation,
+									 DamEngagementUtils utils, ContentResult cr, WFContentStatusAspectBean wfContentStatusAspectBean, WebContentStatusAspectBean webContentStatusAspectBean) {
 
 		Preconditions.checkNotNull(contentId, "contentId cannot be null");
 		Preconditions.checkNotNull(engagement, "engagement cannot be null");
@@ -362,18 +362,7 @@ public class EscenicContentProcessor {
 		if (StringUtils.isNotEmpty(existingEscenicLocation)) {
 			try {
 				ContentWrite<Object> cw  = utils.getUpdateEngagement(latestVersion, Object.class, engagement);
-
-
-
-				Collection<Aspect> aspects = getFinalAspects(cr, cw, wfContentStatusAspectBean);
-
-				//TODO .aspect(PublishingBean.ASPECT_NAME, new PublishingBean(
-				////								escenicId,
-				////								content.getContentDataType(),
-				////								"system").action(PublishingBean.PUBLISH_ACTION)).buildUpdate();
-				////						contentManager.update(content.getId().getContentId(), cw, Subject.NOBODY_CALLER);
-
-
+				Collection<Aspect> aspects = getFinalAspects(cr, cw, wfContentStatusAspectBean, webContentStatusAspectBean);
 
 				ContentWrite cwb = ContentWriteBuilder.from(cw)
 					.origin(latestVersion)
@@ -381,7 +370,6 @@ public class EscenicContentProcessor {
 					.mainAspect(cr.getContent().getContentAspect())
 					.aspects(aspects)
 					.buildUpdate();
-
 
 				contentManager.update(contentId, cwb, SubjectUtil.fromCaller(getCurrentCaller()));
 
@@ -391,20 +379,12 @@ public class EscenicContentProcessor {
 		} else {
 			try {
 				ContentWrite cw = utils.getAddEngagement(latestVersion, Object.class, engagement);
-
-
-				Collection<Aspect> aspects = getFinalAspects(cr, cw, wfContentStatusAspectBean);
-
-				//TODO .aspect(PublishingBean.ASPECT_NAME, new PublishingBean(
-				////								escenicId,
-				////								content.getContentDataType(),
-				////								"system").action(PublishingBean.PUBLISH_ACTION)).buildUpdate();
-				////						contentManager.update(content.getId().getContentId(), cw, Subject.NOBODY_CALLER);
-
+				Collection<Aspect> aspects = getFinalAspects(cr, cw, wfContentStatusAspectBean, webContentStatusAspectBean);
 
 				ContentWrite cwb = ContentWriteBuilder.from(cw)
 					.origin(latestVersion)
 					.aspects(aspects)
+					.mainAspect(cr.getContent().getContentAspect())
 					.buildUpdate();
 
 				contentManager.update(contentId, cwb, SubjectUtil.fromCaller(getCurrentCaller()));
@@ -415,7 +395,7 @@ public class EscenicContentProcessor {
 
 	}
 
-	private Collection<Aspect> getFinalAspects(ContentResult cr, ContentWrite cw, WFContentStatusAspectBean wfContentStatusAspectBean) {
+	private Collection<Aspect> getFinalAspects(ContentResult cr, ContentWrite cw, WFContentStatusAspectBean wfContentStatusAspectBean, WebContentStatusAspectBean webContentStatusAspectBean) {
 		Collection<Aspect> aspects = new ArrayList();
 
 		if (cr != null && cr.getContent() != null) {
@@ -444,11 +424,15 @@ public class EscenicContentProcessor {
 			aspects.add(new Aspect(WFContentStatusAspectBean.ASPECT_NAME, wfContentStatusAspectBean));
 		}
 
+		if (webContentStatusAspectBean != null) {
+			aspects.add(new Aspect(webContentStatusAspectBean.ASPECT_NAME, webContentStatusAspectBean));
+		}
+
 		return aspects;
 	}
 
 
-	protected EngagementDesc createEngagementObject(String escenicId, String escenicLocation, Caller caller) {
+	protected EngagementDesc createEngagementObject(String escenicId) {
 		if (escenicId == null) {
 			escenicId = "";
 		}
@@ -458,7 +442,7 @@ public class EscenicContentProcessor {
 		engagement.setAppPk(escenicId);
 		engagement.setUserName("sysadmin");
 		engagement.getAttributes().add(createElement("link", escenicId));
-		engagement.getAttributes().add(createElement("location", escenicLocation != null ? escenicLocation : ""));
+		engagement.getAttributes().add(createElement("location", escenicConfig.getContentUrl() + escenicId));
 		return engagement;
 	}
 
@@ -559,6 +543,35 @@ public class EscenicContentProcessor {
 		}
 
 		return wfStatus;
+	}
+
+	private WebContentStatusAspectBean getUpdatedWebStatus(ContentResult<OneContentBean> cr, String action) throws ContentModifiedException {//change code here to load content again?
+		if (cr != null && cr.getStatus().isSuccess()) {
+			if (cr.getContent() != null) {
+				Content content = cr.getContent();
+				OneContentBean oneContentBean = cr.getContent().getContentData();
+				WebContentStatusAspectBean statusBean = (WebContentStatusAspectBean) content.getAspectData(WebContentStatusAspectBean.ASPECT_NAME);
+				if (statusBean != null && oneContentBean != null) {
+					WFStatusBean nextStatus = null;
+
+					if (StringUtils.equalsIgnoreCase(action, EscenicProcessor.UNPUBLISH_ACTION)) {
+						 nextStatus = new WebStatusUtils(contentManager).getStatusById("unpublished");
+					} else {
+						nextStatus = new WebStatusUtils(contentManager).getStatusById("online");
+					}
+
+					if (nextStatus != null) {
+						statusBean.setStatus(nextStatus);
+					} else {
+						LOGGER.severe("Unable to retrieve the next web status");
+					}
+
+					return statusBean;
+
+				}
+			}
+		}
+		return null;
 	}
 
 	private WFContentStatusAspectBean getUpdatedStatusWithAttribute(ContentResult<OneContentBean> cr, String action) throws ContentModifiedException {//change code here to load content again?

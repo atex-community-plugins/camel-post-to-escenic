@@ -20,6 +20,25 @@ public class EscenicConfig {
 	private String sectionListUsername;
 	private String sectionListPassword;
 	private String sectionListUrl;
+	private String escenicTopLevelSearchUrl;
+
+	public String getEscenicTopLevelSearchUrl() {
+		return escenicTopLevelSearchUrl;
+	}
+
+	public void setEscenicTopLevelSearchUrl(String escenicTopLevelSearchUrl) {
+		this.escenicTopLevelSearchUrl = escenicTopLevelSearchUrl;
+	}
+
+	public String getContentUrl() {
+		return contentUrl;
+	}
+
+	public void setContentUrl(String contentUrl) {
+		this.contentUrl = contentUrl;
+	}
+
+	private String contentUrl;
 
 	public String getSectionListUsername() {
 		return sectionListUsername;

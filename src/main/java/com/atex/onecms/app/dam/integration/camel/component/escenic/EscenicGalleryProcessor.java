@@ -68,7 +68,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 					String existingEscenicId = null;
 					Entry existingGalleryEntry = null;
 					if (isUpdate) {
-						existingEscenicId = extractIdFromLocation(existingEscenicLocation);
+						existingEscenicId = escenicUtils.extractIdFromLocation(existingEscenicLocation);
 						if (StringUtils.isNotEmpty(existingEscenicId)) {
 
 							try {
@@ -175,13 +175,8 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 	private Entry constructAtomEntryForGallery(DamCollectionAspectBean collectionAspectBean, EscenicGallery escenicGallery, EscenicConfig escenicConfig) {
 		if (collectionAspectBean != null && escenicGallery != null) {
 			Entry entry = new Entry();
-			Title title = new Title();
-			title.setType("text");
-			if (StringUtils.isEmpty(collectionAspectBean.getName())) {
-				title.setTitle("No Name");
-			} else {
-				title.setTitle(collectionAspectBean.getName());
-			}
+			Title title = escenicUtils.createTitle(collectionAspectBean.getHeadline(), "text");
+			entry.setTitle(title);
 
 			Payload payload = new Payload();
 			Content content = new Content();
@@ -206,16 +201,8 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 	protected List<Field> generateGalleryFields(DamCollectionAspectBean collectionAspectBean, EscenicGallery escenicGallery) {
 		List<Field> fields = new ArrayList<>();
-
-		fields.add(escenicUtils.createField("name", collectionAspectBean.getName(), null, null));
-		if (StringUtils.isEmpty(collectionAspectBean.getName())) {
-			fields.add(escenicUtils.createField("title", "No Name", null, null));
-		} else {
-			fields.add(escenicUtils.createField("title", collectionAspectBean.getName(), null, null));
-		}
-
-		fields.add(escenicUtils.createField("leadtext", collectionAspectBean.getHeadline(), null, null));
-
+		fields.add(escenicUtils.createField("title", collectionAspectBean.getHeadline(), null, null));
+		fields.add(escenicUtils.createField("leadtext", collectionAspectBean.getDescription(), null, null));
 		return fields;
 	}
 

@@ -8,7 +8,6 @@ import java.util.List;
  * @author jakub
  */
 @XmlRootElement(name="entry")
-//@XmlType(propOrder={"title","content", "id", "link"})
 public class Entry {
 	private Title title;
 	private String id;
@@ -20,8 +19,7 @@ public class Entry {
 	private Control control;
 	private String published;
 	private String expires;
-
-
+	private Summary summary;
 	private String available;
 
 	public Entry() {
@@ -97,6 +95,15 @@ public class Entry {
 	public void setTitle(Title title) {
 		this.title = title;
 	}
+
+	public Summary getSummary() {
+		return summary;
+	}
+
+	public void setSummary(Summary summary) {
+		this.summary = summary;
+	}
+
 
 	public String getId() {
 		return id;

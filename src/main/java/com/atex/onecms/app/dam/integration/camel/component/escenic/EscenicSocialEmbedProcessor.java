@@ -86,11 +86,11 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 					throw new RuntimeException("Failed to retrieve DamEmbedAspect bean for : " + embedCr.getContentId());
 				}
 
-				String escenicId = extractIdFromLocation(existingEscenicLocation);
+				String escenicId = escenicUtils.extractIdFromLocation(existingEscenicLocation);
 				if (StringUtils.isNotEmpty(escenicId)) {
 
 					assingEmbedProperties(embedBean, contentId, existingEscenicLocation, escenicId, embed.getEmbedCode(), embed.getEmbedUrl(), escenicEmbed);
-					final EngagementDesc engagement = createEngagementObject(escenicId, existingEscenicLocation, getCurrentCaller());
+					final EngagementDesc engagement = createEngagementObject(escenicId);
 					processEngagement(escenicEmbed.getOnecmsContentId(), engagement, escenicEmbed.getEscenicLocation(), utils, embedCr);
 				}
 			}
@@ -106,16 +106,16 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 				} catch (FailedToExtractLocationException e) {
 					e.printStackTrace();
 				}
-				String escenicId = extractIdFromLocation(escenicLocation);
-				final EngagementDesc engagement = createEngagementObject(escenicId, escenicLocation, getCurrentCaller());
-				ContentResult cr = createOnecmsEmbed(escenicEmbed);
+				String escenicId = escenicUtils.extractIdFromLocation(escenicLocation);
+				final EngagementDesc engagement = createEngagementObject(escenicId);
+				embedCr = createOnecmsEmbed(escenicEmbed);
 				DamEmbedAspectBean embedBean = null;
 				try {
-					 embedBean = (DamEmbedAspectBean) escenicUtils.extractContentBean(cr);
+					 embedBean = (DamEmbedAspectBean) escenicUtils.extractContentBean(embedCr);
 				} catch (Exception e) {
-					throw new RuntimeException("Failed to retrieve DamEmbedAspect bean for : " + cr.getContentId());
+					throw new RuntimeException("Failed to retrieve DamEmbedAspect bean for : " + embedCr.getContentId());
 				}
-				ContentId onecmsId = cr.getContent().getId().getContentId();
+				ContentId onecmsId = embedCr.getContent().getId().getContentId();
 				assingEmbedProperties(embedBean, onecmsId, escenicLocation, escenicId, embed.getEmbedCode(), embed.getEmbedUrl(), escenicEmbed );
 				processEngagement(escenicEmbed.getOnecmsContentId(), engagement, null, utils, embedCr);
 			} else {
@@ -137,6 +137,8 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 		DamEmbedAspectBean embedAspectBean = new DamEmbedAspectBean();
 		embedAspectBean.setHtml(escenicEmbed.getEmbedCode());
 		embedAspectBean.setName(escenicEmbed.getEscenicId());
+		//changing the object type so that embeds are not visible/searchable in desk
+		embedAspectBean.setObjectType("escenicEmbed");
 
 		ContentWrite<DamEmbedAspectBean> content  = new ContentWriteBuilder<DamEmbedAspectBean>()
 			.type(DamEmbedAspectBean.ASPECT_NAME)
@@ -159,7 +161,6 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 				for (EscenicContent escenicContent : escenicContentList) {
 					if (escenicContent.isInlineElement()) {
 						if (escenicContent != null && (escenicContent instanceof EscenicImage || escenicContent instanceof EscenicGallery)) {
-						//todo drop2 -> ||	escenicContent instanceof EscenicVideo)  ?
 
 							if (escenicContent.getOnecmsContentId() != null) {
 								if (StringUtils.isNotEmpty(escenicContent.getEscenicId()) && embed.getContentId() != null &&
@@ -170,7 +171,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 								throw new RuntimeException("EscenicContent onemcsid was null");
 							}
 						}
-						//do we need to set it on the escenicContent as well?
+
 						if (escenicContent != null && escenicContent instanceof EscenicEmbed) {
 							EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
 							if (StringUtils.isNotEmpty(embed.getEmbedUrl()) && StringUtils.isNotEmpty(escenicEmbed.getEmbedUrl()) && StringUtils.equalsIgnoreCase(escenicEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
@@ -250,27 +251,46 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 							}
 							break;
 
-						case "video":
+						case EscenicContentReference.CONTENT_REFERENCE_TYPE:
 
-							//TODO drop 2
-//							if (escenicContent != null && escenicContent instanceof ) {
-//								final ContentId id = embed.getContentId();
-//								if (id != null && escenicContent.getOnecmsContentId() != null) {
-//									if (id.equals(escenicContent.getOnecmsContentId())) {
-//
-//										try{
-//											EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
-//											final String newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" alt=\"undefined\"></a></p>";
-//											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
-//											e.replaceWith(ne);
-//										} catch (ClassCastException classCastException) {
-//											throw new RuntimeException("Error occurred while attempting to cast EscenicContent to EscenicImage: " + classCastException.getMessage());
-//										}
-//									}
-//								}
-//							}
-//
-//							break;
+							if (escenicContent != null && escenicContent instanceof EscenicContentReference) {
+
+								final ContentId id = embed.getContentId();
+								if (id != null && escenicContent.getOnecmsContentId() != null) {
+									if (id.equals(escenicContent.getOnecmsContentId())) {
+										EscenicContentReference escenicContentReference = (EscenicContentReference) escenicContent;
+										if (StringUtils.isNotEmpty(escenicContentReference.getType())) {
+											String newHtml = "";
+											if (StringUtils.isEmpty(escenicContentReference.getId())) {
+												escenicContentReference.setId("_" + UUID.randomUUID().toString());
+											}
+											switch (escenicContentReference.getType()) {
+												case EscenicContentReference.ESCENIC_ARTICLE_TYPE:
+												case EscenicContentReference.ESCENIC_VIDEO_TYPE:
+												case EscenicContentReference.ESCENIC_CODE_TYPE:
+												case EscenicContentReference.ESCENIC_SOUNDCLOUD_TYPE:
+												case EscenicContentReference.ESCENIC_GALLERY_TYPE:
+												case EscenicContentReference.ESCENIC_SOCIAL_EMBED_TYPE:
+													newHtml = "<p><a href=\"" + escenicContentReference.getEscenicLocation() + "\" id=\"" + escenicContentReference.getId() + "\"></a></p>";
+													break;
+												case EscenicContentReference.ESCENIC_IMAGE_TYPE:
+													newHtml = "<p><img src=\"" + escenicContentReference.getThumbnailUrl() + "\" alt=\"undefined\" id=\"" + escenicContentReference.getId() + "\"></img></p>";
+													break;
+												default:
+													//strip the element off...
+													newHtml = "<span></span>";
+													break;
+
+											}
+
+											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
+  											e.replaceWith(ne);
+										}
+									}
+								}
+							}
+
+							break;
 
 						case EscenicEmbed.SOCIAL_EMBED_TYPE:
 							if (escenicContent != null && escenicContent instanceof EscenicEmbed) {

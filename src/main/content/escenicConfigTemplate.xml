@@ -30,6 +30,10 @@
               <help>com.atex.plugins.camel-post-to-escenic.apiUrl.help</help>
               <param name="inlineHelp">true</param>
           </field>
+          <field input-template="p.TextInput" name="contentUrl" label="com.atex.plugins.camel-post-to-escenic.contentUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.contentUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
           <field input-template="p.TextInput" name="binaryUrl" label="com.atex.plugins.camel-post-to-escenic.binaryUrl">
               <help>com.atex.plugins.camel-post-to-escenic.binaryUrl.help</help>
               <param name="inlineHelp">true</param>
@@ -65,6 +69,10 @@
           </field>
           <field input-template="p.TextInput" name="sectionListUrl" label="com.atex.plugins.camel-post-to-escenic.sectionListUrl">
               <help>com.atex.plugins.camel-post-to-escenic.sectionListUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.TextInput" name="escenicTopLevelSearchUrl" label="com.atex.plugins.camel-post-to-escenic.escenicTopLevelSearchUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.escenicTopLevelSearchUrl.help</help>
               <param name="inlineHelp">true</param>
           </field>
       </layout>
