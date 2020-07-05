@@ -48,6 +48,7 @@ import javax.xml.bind.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
@@ -646,6 +647,7 @@ public class EscenicUtils {
 	public String createSearchGroups(String xml) throws EscenicException {
 		try {
 			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+			docFactory.setNamespaceAware(true);
 			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 			Document doc = docBuilder.parse(new InputSource(new StringReader(xml)));
 			Node feed = doc.getFirstChild();
@@ -670,6 +672,8 @@ public class EscenicUtils {
 			StringWriter stringWriter = new StringWriter();
 			TransformerFactory transformerFactory = TransformerFactory.newInstance();
 			Transformer transformer = transformerFactory.newTransformer();
+			transformer.setOutputProperty(OutputKeys.METHOD, "xml" );
+			transformer.setOutputProperty(OutputKeys.INDENT, "false" );
 			DOMSource source = new DOMSource(doc);
 			transformer.transform(source,  new StreamResult(stringWriter));
 			return stringWriter.getBuffer().toString();
