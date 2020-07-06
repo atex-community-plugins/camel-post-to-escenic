@@ -8,6 +8,7 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.Fai
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.ws.EscenicResource;
 import com.atex.onecms.app.dam.standard.aspects.*;
 import com.atex.onecms.content.*;
@@ -810,13 +811,35 @@ public class EscenicUtils {
 
 	public boolean isUpdateAllowed(Entry entry) {
 		if (entry != null) {
-
-			//i.e. throw an error and give up publishing
-			//return false;
+			try {
+				Content content = entry.getContent();
+				if (content != null) {
+					Payload payload = content.getPayload();
+					if (payload != null) {
+						List<Field> fields = payload.getField();
+						if (fields != null) {
+							for (Field field : fields) {
+								if (field != null) {
+									if (StringUtils.equalsIgnoreCase(field.getName(), "allowCUEUpdates")) {
+										if (field.getValue() != null && field.getValue().getValue() != null) {
+												for (Object o : field.getValue().getValue()) {
+													if (o instanceof String) {
+														String flag = o.toString();
+														return StringUtils.equalsIgnoreCase(flag, "false") ? true : false;
+													}
+												}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			} catch (Exception e) {
+				throw new RuntimeException("Failed to extract a value for allowCUEUpdates flag." + e);
+			}
 		}
-
-		return true;
-
+		return false;
 	}
 
 	public boolean isEscenicEmbedAlreadyProcessed (List<EscenicContent> list, CustomEmbedParser.SmartEmbed embed) {

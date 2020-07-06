@@ -120,10 +120,10 @@ public class EscenicContentProcessor {
 			if (isUpdate) {
 				LOGGER.finest("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
 				entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
-				//TODO allowAtexUpdatesFlag
-//				if (escenicUtils.isUpdateAllowed(entry)) {
-//					throw new EscenicException("AllowAtexUpdates flag was set to false in escenic - unable to send an update to content");
-//				}
+
+				if (!escenicUtils.isUpdateAllowed(entry)) {
+					throw new EscenicException("Editing from desk is disabled. Content has been marked to only allow updates in CUE");
+				}
 			}
 
 			List<EscenicContent> escenicContentList = null;

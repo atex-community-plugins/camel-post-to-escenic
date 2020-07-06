@@ -130,7 +130,6 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 		if (article.getTimeState() != null && StringUtils.equalsIgnoreCase("published", stateText)) {
 			if (article.getTimeState().getOntime() > 0) {
-				//todo add logic to remove it if offtime set?
 				embargoState.setName(PREACTIVE_STATE);
 			}
 		}
@@ -171,6 +170,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		fields.add(escenicUtils.createField("body", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getBody()), escenicContentList), null, null));
 		fields.add(escenicUtils.createField("summary", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getSubHeadline()), null), null, null));
 		fields.add(escenicUtils.createField("subscriptionProtected", articleBean.getSponsorname(), null, null));
+		fields.add(escenicUtils.createField("allowCUEUpdates", "false", null, null));
 
 		return fields;
 	}
