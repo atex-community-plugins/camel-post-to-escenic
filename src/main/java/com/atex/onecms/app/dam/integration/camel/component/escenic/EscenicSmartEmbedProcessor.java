@@ -80,17 +80,13 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 									break;
 
 								case EscenicEmbed.SOCIAL_EMBED_TYPE:
-									//special case - we won't be sending any updates to social embeds I guess?
-									//So in here, if the entry exists, you can reuse what's already on the entry.
-									//of course if the embed escenic id matches what's in the link, otherwise create a new one.
-									if (entry == null) {
+
+									//special case - if there are duplicates parsed from article body we'll only create one content in escenic
+									// and use the ids for all occurrences
+									if (!escenicUtils.isEscenicEmbedAlreadyProcessed(escenicContentList, embed)) {
 										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
 										escenicContentList.add(escenicEmbed);
-									} else {
-											EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
-											escenicContentList.add(escenicEmbed);
 									}
-
 									break;
 
 								//workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.

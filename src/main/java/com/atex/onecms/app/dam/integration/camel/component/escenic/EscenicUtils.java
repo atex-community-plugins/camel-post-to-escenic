@@ -819,6 +819,25 @@ public class EscenicUtils {
 
 	}
 
+	public boolean isEscenicEmbedAlreadyProcessed (List<EscenicContent> list, CustomEmbedParser.SmartEmbed embed) {
+
+		if (list != null && embed != null) {
+			for (EscenicContent content : list) {
+				if (content != null && content instanceof EscenicEmbed) {
+					EscenicEmbed socialEmbed = (EscenicEmbed) content;
+					if (socialEmbed != null) {
+						if (StringUtils.isNotEmpty(socialEmbed.getEmbedUrl()) && StringUtils.isNotEmpty(embed.getEmbedUrl()) &&
+							StringUtils.equalsIgnoreCase(socialEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
+
+	}
+
 	public Title createTitle(String value, String type) {
 		Title title = new Title();
 		title.setType(type);

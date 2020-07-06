@@ -294,19 +294,26 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 						case EscenicEmbed.SOCIAL_EMBED_TYPE:
 							if (escenicContent != null && escenicContent instanceof EscenicEmbed) {
-								EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
-								if (StringUtils.isNotEmpty(embed.getEmbedUrl()) && StringUtils.equalsIgnoreCase(escenicEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
 
-									if (StringUtils.isEmpty(escenicEmbed.getId())) {
-										escenicEmbed.setId("_" + UUID.randomUUID().toString());
+								final ContentId id = embed.getContentId();
+								if (id != null && escenicContent.getOnecmsContentId() != null) {
+									if (id.equals(escenicContent.getOnecmsContentId())) {
+										EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
+										if (StringUtils.isNotEmpty(embed.getEmbedUrl()) && StringUtils.equalsIgnoreCase(escenicEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
+											if (StringUtils.equalsIgnoreCase(embed.getEscenicId(), escenicEmbed.getEscenicId())) {
+												if (StringUtils.isEmpty(escenicEmbed.getId())) {
+													escenicEmbed.setId("_" + UUID.randomUUID().toString());
+												}
+												String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\"></a></p>";
+
+												final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
+												e.replaceWith(ne);
+											}
+										}
 									}
-									String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\"></a></p>";
-
-									final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
-									e.replaceWith(ne);
 								}
-								break;
 							}
+							break;
 					}
 				}
 			}
