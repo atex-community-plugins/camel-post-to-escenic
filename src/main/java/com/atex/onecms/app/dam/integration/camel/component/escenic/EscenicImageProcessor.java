@@ -432,7 +432,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean, Entry existingImgEntry, Content cresultContent, String binaryLocation, EscenicConfig escenicConfig, ImageEditInfoAspectBean imageEditInfoAspectBean) {
 		if (oneImageBean != null) {
 			Entry entry = new Entry();
-			Title title = escenicUtils.createTitle(oneImageBean.getTitle(), "text");
+			Title title = escenicUtils.createTitle(oneImageBean.getName(), "text");
 			entry.setTitle(title);
 
 			Payload payload = new Payload();
