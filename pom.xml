@@ -78,7 +78,7 @@
       <dependency>
         <groupId>com.atex.gong</groupId>
         <artifactId>onecms-custom-source</artifactId>
-        <version>${polopoly.version}</version>
+        <version>${desk.version}</version>
       </dependency>
       <dependency>
         <groupId>com.atex</groupId>
@@ -135,6 +135,7 @@
       <groupId>com.atex.adm.packaged</groupId>
       <artifactId>onecms-custom-source</artifactId>
       <version>2.5.0-SNAPSHOT</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
