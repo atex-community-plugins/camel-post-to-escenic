@@ -182,10 +182,23 @@ import com.atex.onecms.content.IdUtil;
 				URI uri = new URI(embedUrl);
 				String domain = uri.getHost();
 				domain = domain.contains(".") ? StringUtils.substringBeforeLast(domain, ".") : domain;
-				return domain.startsWith("www.") ? domain.substring(4) : domain;
-
+				domain = domain.startsWith("www.") ? domain.substring(4) : domain;
+				return validateSocialNetworkName(domain);
 			}
 			return null;
+		}
+
+		private String validateSocialNetworkName(String socialNetworkName) {
+			if (StringUtils.isNotEmpty(socialNetworkName)) {
+				switch (socialNetworkName) {
+					case "youtu":
+
+						return "youtube";
+					default :
+						return socialNetworkName;
+				}
+			}
+			return socialNetworkName;
 		}
 
 		public class SmartEmbed {
