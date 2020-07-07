@@ -51,7 +51,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
               if (link['rel'] !== undefined) {
 
                 if (link['rel'] === 'thumbnail') {
-                  result.thumbUrl = link['href'];
+                  result.thumbUrl = previewUrl + 'getThumbnail?url=' + link['href'];
                 }
 
                 if (link['rel'] === 'http://www.escenic.com/types/relation/summary-model') {

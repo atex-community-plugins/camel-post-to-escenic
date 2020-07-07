@@ -29,33 +29,34 @@ import com.polopoly.user.server.UserId;
 import com.sun.jersey.spi.resource.PerRequest;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import org.springframework.util.StreamUtils;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletContext;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
-import java.io.StringReader;
 import java.net.URI;
 import java.util.Optional;
 
@@ -257,6 +258,61 @@ public class EscenicResource {
 				SC_INTERNAL_SERVER_ERROR, e);
 		}
 
+		return Response.serverError().build();
+	}
+
+	@GET
+	@Path("getThumbnail")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	public Response getThumbnail(@QueryParam("url") String url) throws ErrorResponseException, IOException, URISyntaxException {
+		EscenicUtils escenicUtils = getEscenicUtils();
+		if (url != null) {
+
+			url = URIUtil.encodeQuery(url);
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Sending the following query to escenic:\n" + url);
+			}
+
+			HttpGet request = new HttpGet(url);
+			request.setHeader(escenicUtils.generateAuthenticationHeader(getEscenicConfig().getUsername(), getEscenicConfig().getPassword()));
+
+			InputStream is = null;
+
+			try {
+				CloseableHttpResponse result = httpClient.execute(request);
+
+				if (result != null && result.getStatusLine() != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+
+					String mimeType = result.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
+
+					final ContentType contentType = ContentType.create(
+						Optional.ofNullable(mimeType)
+							.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
+					final InputStreamEntity inputStreamEntity = new InputStreamEntity(result.getEntity().getContent(), contentType);
+					if (inputStreamEntity != null) {
+						is = inputStreamEntity.getContent();
+
+						byte[] imageData = StreamUtils.copyToByteArray(is);
+						return Response.ok(new ByteArrayInputStream(imageData)).header(HttpHeaders.CONTENT_TYPE, mimeType).build();
+
+					}
+				} else {
+					throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
+						"Failed to retrieve thumbnail: " + result.getStatusLine(),
+						SERVER_ERROR,
+						SC_INTERNAL_SERVER_ERROR);
+				}
+			} catch (Exception e) {
+				throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
+				e.getMessage(),
+				SERVER_ERROR,
+				SC_INTERNAL_SERVER_ERROR, e);
+			} finally {
+				if (is != null) {
+					is.close();
+				}
+			}
+		}
 		return Response.serverError().build();
 	}
 
