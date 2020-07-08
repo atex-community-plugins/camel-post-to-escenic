@@ -459,7 +459,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
 
-		fields.add(escenicUtils.createField("title", oneImageBean.getTitle(), null, null));
+		fields.add(escenicUtils.createField("title", oneImageBean.getName(), null, null));
 		fields.add(escenicUtils.createField("description", oneImageBean.getDescription(), null, null));
 		fields.add(escenicUtils.createField("photographer", oneImageBean.getCredit(), null, null));
 		fields.add(escenicUtils.createField("caption", oneImageBean.getCaption(), null, null));
