@@ -166,8 +166,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		fields.add(escenicUtils.createField("articleLayout", articleBean.getArticleType().toLowerCase(), null, null));
 		fields.add(escenicUtils.createField("byline", articleBean.getByline(), null, null));
 		fields.add(escenicUtils.createField("originalSource", articleBean.getSource(), null, null));
-		fields.add(escenicUtils.createField("leadtext", escenicUtils.getFirstBodyParagraph(escenicUtils.getStructuredText(articleBean.getBody())), null, null));
-		fields.add(escenicUtils.createField("body", escenicUtils.convertStructuredTextToEscenic(escenicUtils.removeFirstParagraph(escenicUtils.getStructuredText(articleBean.getBody())), escenicContentList), null, null));
+		fields.add(escenicUtils.createField("leadtext", escenicUtils.getFirstBodyParagraph(articleBean.getBody()), null, null));
+		fields.add(escenicUtils.createField("body", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getBody()), escenicContentList), null, null));
 		fields.add(escenicUtils.createField("summary", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(articleBean.getSubHeadline()), null), null, null));
 		fields.add(escenicUtils.createField("subscriptionProtected", articleBean.getSponsorname(), null, null));
 		fields.add(escenicUtils.createField("allowCUEUpdates", "false", null, null));
