@@ -86,7 +86,7 @@ public class EscenicUtils {
 	}
 
 	protected CloseableHttpClient httpClient;
-	private static final int TIMEOUT = 60 * 1000;
+	private static final int TIMEOUT = 30 * 1000;
 	private static final RequestConfig config = RequestConfig.custom()
 		.setConnectTimeout(TIMEOUT)
 		.setConnectionRequestTimeout(TIMEOUT)
@@ -780,33 +780,49 @@ public class EscenicUtils {
 		}
 	}
 
-	public String getFirstBodyParagraph(StructuredText body) {
-		String html = getStructuredText(body);
-		html = html.replaceAll("&nbsp;", "");
-		if (StringUtils.isNotBlank(html)) {
-			Element document = Jsoup.parse(html).body();
+	public String getFirstBodyParagraph(String text) {
+		text = text.replaceAll("&nbsp;", "");
+		if (StringUtils.isNotBlank(text)) {
+			Element document = Jsoup.parse(text).body();
 			if (document != null) {
 				for (Element element : document.children()) {
 					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
 						if (StringUtils.isNotBlank(element.text())) {
-
 							return element.text();
 						}
 					}
-
 				}
+
 				Element element = document.select("p").first();
 				if (element != null && StringUtils.isNotBlank(element.text())) {
 					return element.text();
 				}
 			}
-
-			return "";
-
 		}
-
 		return "";
+	}
 
+	public String removeFirstParagraph(String text) {
+		if (StringUtils.isNotBlank(text)) {
+			Element document = Jsoup.parse(text).body();
+			if (document != null) {
+				for (Element element : document.children()) {
+					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
+						if (StringUtils.isNotBlank(element.text())) {
+							element.remove();
+							return document.text();
+						}
+					}
+				}
+
+				Element element = document.select("p").first();
+				if (element != null && StringUtils.isNotBlank(element.text())) {
+					element.remove();
+					return document.text();
+				}
+			}
+		}
+		return text;
 	}
 
 	public boolean isUpdateAllowed(Entry entry) {
