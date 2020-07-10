@@ -254,7 +254,7 @@ public class EscenicUtils {
 	protected String removeHtmlTags(String text) {
 		if (StringUtils.isNotBlank(text)) {
 			text = replaceNonBreakingSpaces(text);
-			org.jsoup.nodes.Document d = Jsoup.parse(replaceNonBreakingSpaces(text));
+			org.jsoup.nodes.Document d = Jsoup.parseBodyFragment(replaceNonBreakingSpaces(text));
 			d.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
 			return d.text();
 		}
@@ -780,9 +780,7 @@ public class EscenicUtils {
 		}
 	}
 
-	public String getFirstBodyParagraph(StructuredText body) {
-		String html = getStructuredText(body);
-		html = html.replaceAll("&nbsp;", "");
+	public String getFirstBodyParagraph(String html) {
 		if (StringUtils.isNotBlank(html)) {
 			Element document = Jsoup.parse(html).body();
 			if (document != null) {
@@ -807,6 +805,32 @@ public class EscenicUtils {
 
 		return "";
 
+	}
+
+	public String removeFirstParagraph(String text) {
+		org.jsoup.nodes.Document document = Jsoup.parseBodyFragment(text);
+		document.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+		Element doc = document.body();
+
+		if (doc != null) {
+				for (Element element : doc.children()) {
+					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
+						if (StringUtils.isNotBlank(element.text())) {
+							element.remove();
+							return document.body().html();
+						}
+					}
+				}
+
+
+				Element element = doc.select("p").first();
+				if (element != null && StringUtils.isNotBlank(element.text())) {
+					element.remove();
+					return document.body().html();
+				}
+		}
+
+		return text;
 	}
 
 	public boolean isUpdateAllowed(Entry entry) {
