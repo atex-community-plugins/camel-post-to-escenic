@@ -55,26 +55,29 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 						if (StringUtils.isNotEmpty(embed.getObjType())) {
 							switch (embed.getObjType()) {
 								case EscenicImage.IMAGE_TYPE:
-									if (embed.getContentId() != null) {
-										EscenicImage escenicImage = new EscenicImage();
-										escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, utils, escenicContentList, sectionId, action);
+									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
+										if (embed.getContentId() != null) {
+											EscenicImage escenicImage = new EscenicImage();
+											escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, utils, escenicContentList, sectionId, action);
 
-										if (escenicImage != null) {
-											escenicContentList.add(escenicImage);
+											if (escenicImage != null) {
+												escenicContentList.add(escenicImage);
+											} else {
+												LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+											}
 										} else {
-											LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+											LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
 										}
-									} else {
-										LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
 									}
-
 
 									break;
 
 								case EscenicGallery.GALLERY_TYPE:
-									if (embed.getContentId() != null) {
-										EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), embed, utils, sectionId, action);
-										escenicContentList.add(escenicGallery);
+									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
+										if (embed.getContentId() != null) {
+											EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), embed, utils, sectionId, action);
+											escenicContentList.add(escenicGallery);
+										}
 									}
 
 									break;
@@ -83,7 +86,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 
 									//special case - if there are duplicates parsed from article body we'll only create one content in escenic
 									// and use the ids for all occurrences
-									if (!escenicUtils.isEscenicEmbedAlreadyProcessed(escenicContentList, embed)) {
+									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
 										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
 										escenicContentList.add(escenicEmbed);
 									}
@@ -92,9 +95,10 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 								//workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.
 								//once we load them individually by onecms id, we can pick up their actual type in escenic for further processing
 								case EscenicArticle.ARTICLE_TYPE:
-
-									EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed);
-									escenicContentList.add(escenicContentReference);
+									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
+										EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed);
+										escenicContentList.add(escenicContentReference);
+									}
 									break;
 							}
 						}

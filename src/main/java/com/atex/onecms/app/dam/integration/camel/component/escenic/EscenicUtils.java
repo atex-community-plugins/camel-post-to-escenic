@@ -866,25 +866,6 @@ public class EscenicUtils {
 		return false;
 	}
 
-	public boolean isEscenicEmbedAlreadyProcessed (List<EscenicContent> list, CustomEmbedParser.SmartEmbed embed) {
-
-		if (list != null && embed != null) {
-			for (EscenicContent content : list) {
-				if (content != null && content instanceof EscenicEmbed) {
-					EscenicEmbed socialEmbed = (EscenicEmbed) content;
-					if (socialEmbed != null) {
-						if (StringUtils.isNotEmpty(socialEmbed.getEmbedUrl()) && StringUtils.isNotEmpty(embed.getEmbedUrl()) &&
-							StringUtils.equalsIgnoreCase(socialEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
-							return true;
-						}
-					}
-				}
-			}
-		}
-		return false;
-
-	}
-
 	public Title createTitle(String value, String type) {
 		Title title = new Title();
 		title.setType(type);
@@ -930,5 +911,29 @@ public class EscenicUtils {
 			}
 		}
 		return query;
+	}
+
+	public boolean isAlreadyProcessed(List<EscenicContent> list, CustomEmbedParser.SmartEmbed embed) {
+		if (list != null && embed != null) {
+			for (EscenicContent content : list) {
+				if (content != null) {
+					//special case for social embeds - instead of comparing the onecms id we'll be comparing the embed URL
+					if (StringUtils.equalsIgnoreCase(embed.getObjType(), EscenicEmbed.SOCIAL_EMBED_TYPE)) {
+						EscenicEmbed socialEmbed = (EscenicEmbed) content;
+						if (socialEmbed != null) {
+							if (StringUtils.isNotEmpty(socialEmbed.getEmbedUrl()) && StringUtils.isNotEmpty(embed.getEmbedUrl()) &&
+								StringUtils.equalsIgnoreCase(socialEmbed.getEmbedUrl(), embed.getEmbedUrl())) {
+								return true;
+							}
+						}
+					} else if (content.getOnecmsContentId() != null) {
+						if (embed.getContentId() != null && embed.getContentId().equals(content.getOnecmsContentId())) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
 	}
 }
