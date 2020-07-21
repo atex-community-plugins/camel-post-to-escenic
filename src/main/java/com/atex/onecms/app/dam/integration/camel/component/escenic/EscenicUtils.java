@@ -235,6 +235,12 @@ public class EscenicUtils {
 		structuredText = replaceNonBreakingSpaces(wrapWithDiv(structuredText));
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
+		} else {
+			//still ensure it's parsed
+			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
+			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+//			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
+			structuredText = doc.html();
 		}
 
 		if (LOGGER.isLoggable(Level.FINEST)) {
@@ -540,7 +546,7 @@ public class EscenicUtils {
 		link.setState(state);
 		link.setPayload(payload);
 		link.setIdentifier(identifier);
-		link.setTitle(title);
+		link.setTitle(escapeHtml(title));
 		return link;
 	}
 
@@ -627,6 +633,7 @@ public class EscenicUtils {
 				}
 
 				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
+					existinglink.setTitle(escapeHtml(existinglink.getTitle()));
 					links.add(existinglink);
 
 				}
@@ -935,5 +942,19 @@ public class EscenicUtils {
 			}
 		}
 		return false;
+	}
+
+	public Publication cleanUpPublication(Publication publication) {
+		if (publication != null) {
+			publication.setTitle(escapeHtml(publication.getTitle()));
+			List<Link> links = publication.getLink();
+
+			if (links != null) {
+				for (Link link : links) {
+					link.setTitle(escapeHtml(link.getTitle()));
+				}
+			}
+		}
+		return publication;
 	}
 }
