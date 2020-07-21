@@ -122,7 +122,7 @@ public class EscenicContentProcessor {
 				entry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 
 				if (!escenicUtils.isUpdateAllowed(entry)) {
-					throw new EscenicException("Editing from desk is disabled. Content has been marked to only allow updates in CUE");
+					throw new EscenicException("Editing in Desk is disabled. This item can only be updated in CUE");
 				}
 			}
 
