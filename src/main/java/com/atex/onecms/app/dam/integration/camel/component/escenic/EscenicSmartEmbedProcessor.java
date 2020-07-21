@@ -121,6 +121,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 	private String constructAtomEntryForSocialEmbed(EscenicEmbed escenicEmbed, CustomEmbedParser.SmartEmbed socialEmbed, EscenicConfig escenicConfig) {
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(socialEmbed.getSocialNetwork(), "text");
+		escenicEmbed.setTitle(title.getTitle());
 		entry.setTitle(title);
 		Payload payload = new Payload();
 		com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content content = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content();

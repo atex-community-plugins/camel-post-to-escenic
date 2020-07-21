@@ -136,7 +136,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 	protected ContentResult createOnecmsEmbed(EscenicEmbed escenicEmbed) throws RuntimeException {
 		DamEmbedAspectBean embedAspectBean = new DamEmbedAspectBean();
 		embedAspectBean.setHtml(escenicEmbed.getEmbedCode());
-		embedAspectBean.setName(escenicEmbed.getEscenicId());
+		embedAspectBean.setName(escenicEmbed.getTitle());
 		//changing the object type so that embeds are not visible/searchable in desk
 		embedAspectBean.setObjectType("escenicEmbed");
 
@@ -197,7 +197,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 		return customEmbedParser.getSmartEmbed(text);
 	}
 
-	protected static String replaceEmbeds(String structuredText, List<EscenicContent> escenicContentList) {
+	protected String replaceEmbeds(String structuredText, List<EscenicContent> escenicContentList) {
 		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, (e) -> {
 			final CustomEmbedParser.SmartEmbed embed = customEmbedParser.createSmartEmbedFromElement(e);
 			if (embed != null) {
@@ -239,7 +239,8 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 											if (StringUtils.isEmpty(escenicGallery.getId())) {
 												escenicGallery.setId("_" + UUID.randomUUID().toString());
 											}
-											String newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" id=\"" + escenicGallery.getId() + "\" alt=\"undefined\"></a></p>";
+											String newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" id=\"" + escenicGallery.getId() + "\" alt=\"undefined\">" +
+												escenicUtils.escapeHtml(escenicGallery.getTitle()) + "</a></p>";
 
 											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 											e.replaceWith(ne);
@@ -271,7 +272,8 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 												case EscenicContentReference.ESCENIC_SOUNDCLOUD_TYPE:
 												case EscenicContentReference.ESCENIC_GALLERY_TYPE:
 												case EscenicContentReference.ESCENIC_SOCIAL_EMBED_TYPE:
-													newHtml = "<p><a href=\"" + escenicContentReference.getEscenicLocation() + "\" id=\"" + escenicContentReference.getId() + "\"></a></p>";
+													newHtml = "<p><a href=\"" + escenicContentReference.getEscenicLocation() + "\" id=\"" + escenicContentReference.getId() + "\">" +
+														escenicUtils.escapeHtml(escenicContentReference.getTitle()) + "</a></p>";
 													break;
 												case EscenicContentReference.ESCENIC_IMAGE_TYPE:
 													newHtml = "<p><img src=\"" + escenicContentReference.getThumbnailUrl() + "\" alt=\"undefined\" id=\"" + escenicContentReference.getId() + "\"></img></p>";
@@ -304,7 +306,8 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 												if (StringUtils.isEmpty(escenicEmbed.getId())) {
 													escenicEmbed.setId("_" + UUID.randomUUID().toString());
 												}
-												String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\"></a></p>";
+												String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\">" +
+													 escenicUtils.escapeHtml(escenicEmbed.getTitle()) + "</a></p>";
 
 												final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 												e.replaceWith(ne);

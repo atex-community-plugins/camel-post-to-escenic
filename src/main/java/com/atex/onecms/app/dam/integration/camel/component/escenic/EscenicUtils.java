@@ -925,7 +925,7 @@ public class EscenicUtils {
 			for (EscenicContent content : list) {
 				if (content != null) {
 					//special case for social embeds - instead of comparing the onecms id we'll be comparing the embed URL
-					if (StringUtils.equalsIgnoreCase(embed.getObjType(), EscenicEmbed.SOCIAL_EMBED_TYPE)) {
+					if (StringUtils.equalsIgnoreCase(embed.getObjType(), EscenicEmbed.SOCIAL_EMBED_TYPE) && content instanceof EscenicEmbed) {
 						EscenicEmbed socialEmbed = (EscenicEmbed) content;
 						if (socialEmbed != null) {
 							if (StringUtils.isNotEmpty(socialEmbed.getEmbedUrl()) && StringUtils.isNotEmpty(embed.getEmbedUrl()) &&

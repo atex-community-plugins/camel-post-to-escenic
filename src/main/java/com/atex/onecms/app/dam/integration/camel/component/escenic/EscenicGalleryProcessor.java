@@ -122,7 +122,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 		escenicGallery.setEscenicLocation(escenicLocation);
 		escenicGallery.setOnecmsContentId(contentId);
 		escenicGallery.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-		escenicGallery.setTitle(collectionAspectBean.getHeadline());
+		escenicGallery.setTitle(escenicUtils.escapeHtml(collectionAspectBean.getHeadline()));
 		List<Link> links = escenicUtils.generateLinks(escenicGallery);
 		escenicGallery.setLinks(links);
 	}

@@ -10,10 +10,7 @@ import javax.xml.bind.annotation.XmlValue;
  */
 public class Title {
 
-	@XmlAttribute
 	private String type;
-
-	@XmlValue
 	private String title;
 
 	public Title(){
@@ -25,5 +22,15 @@ public class Title {
 
 	public void setType(String type) {
 		this.type = type;
+	}
+
+	@XmlAttribute
+	public String getType() {
+		return type;
+	}
+
+	@XmlValue
+	public String getTitle() {
+		return title;
 	}
 }
