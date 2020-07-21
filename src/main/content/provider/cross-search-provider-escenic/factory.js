@@ -229,7 +229,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
             var facet = searchResponseData.group[i];
 
             var fieldFacets = [];
-            fieldFacets.tick = 10;
+            fieldFacets.tick = 100;
             var fieldName = facet.title;
             if (facet.hasOwnProperty('query')) {
 
