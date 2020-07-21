@@ -69,7 +69,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
 
         result.name = atex.onecms.ObjectUtils.getByPath(doc, 'title/title') || "";
 
-        result.ref = "<a href='" + previewUrl + "openPreview?escenicLocation=" + result.id + "' target='_blank'>Preview on site</a>";
+        result.ref = "<a href='" + previewUrl + "openPreview?escenicLocation=" + result.id + "' target='_blank'>View article on Site</a>";
 
         return result;
       }
