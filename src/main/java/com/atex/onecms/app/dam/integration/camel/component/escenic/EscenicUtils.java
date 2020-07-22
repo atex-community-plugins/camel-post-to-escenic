@@ -631,10 +631,9 @@ public class EscenicUtils {
 					}
 				}
 
-				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getRel(), "related")) {
+				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "pictureRel") && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "com.escenic.inlineRelations")) {
 					existinglink.setTitle(escapeHtml(existinglink.getTitle()));
 					links.add(existinglink);
-
 				}
 			}
 			return links;
