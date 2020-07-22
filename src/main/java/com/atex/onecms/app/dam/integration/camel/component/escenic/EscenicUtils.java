@@ -240,7 +240,7 @@ public class EscenicUtils {
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
 //			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
-			structuredText = doc.html();
+			structuredText = doc.body().html();
 		}
 
 		if (LOGGER.isLoggable(Level.FINEST)) {
