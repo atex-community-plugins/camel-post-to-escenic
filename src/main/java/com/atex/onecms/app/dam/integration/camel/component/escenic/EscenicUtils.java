@@ -232,7 +232,7 @@ public class EscenicUtils {
 			LOGGER.finest("Body before replacing embeds: " + structuredText);
 		}
 
-		structuredText = replaceNonBreakingSpaces(wrapWithDiv(structuredText));
+		structuredText = wrapWithDiv(structuredText);
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
 		} else {
@@ -259,10 +259,9 @@ public class EscenicUtils {
 	//remove html tags and replace non breaking spaces
 	protected String removeHtmlTags(String text) {
 		if (StringUtils.isNotBlank(text)) {
-			text = replaceNonBreakingSpaces(text);
-			org.jsoup.nodes.Document d = Jsoup.parseBodyFragment(replaceNonBreakingSpaces(text));
+			org.jsoup.nodes.Document d = Jsoup.parseBodyFragment(text);
 			d.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-			return d.text();
+			return d.body().text();
 		}
 		return text;
 
