@@ -166,6 +166,8 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
 			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
+			//we're resetting the summary to ensure invalid xhtml chars are being escaped
+			escenicUtils.cleanUpSummary(existingEntry);
 			return existingEntry;
 		}
 		return entry;

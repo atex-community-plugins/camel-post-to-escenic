@@ -885,7 +885,6 @@ public class EscenicUtils {
 		return summary;
 	}
 
-
 	public String getQuery(String query){
 		if (StringUtils.isBlank(query)) {
 			query = EscenicResource.DEFAULT_QUERY;
@@ -954,5 +953,11 @@ public class EscenicUtils {
 			}
 		}
 		return publication;
+	}
+
+	public void cleanUpSummary(Entry existingEntry) {
+		if (existingEntry != null && existingEntry.getSummary() != null && StringUtils.isNotBlank(existingEntry.getSummary().getSummary())) {
+			existingEntry.setSummary(createSummary(existingEntry.getSummary().getSummary(), "text"));
+		}
 	}
 }
