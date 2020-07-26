@@ -890,6 +890,8 @@ public class EscenicUtils {
 			query = EscenicResource.DEFAULT_QUERY;
 		} else {
 
+			query = replaceInvalidQueryChars(query);
+
 			//process the query part here:
 			String[] terms = query.split(" ");
 			if (terms != null && terms.length > 1) {
@@ -914,6 +916,24 @@ public class EscenicUtils {
 				query = "((" + query + ") OR (" + query + " OR " + query + "*))";
 			}
 		}
+		return query;
+	}
+
+	private String replaceInvalidQueryChars(String query) {
+		if (StringUtils.isNotBlank(query)) {
+			query = query.replaceAll("!", " ");
+			query = query.replaceAll("-", " ");
+			query = query.replaceAll("/", " ");
+			query = query.replaceAll("\\\\", "");
+			query = query.replaceAll("\\(", " ");
+			query = query.replaceAll("\\)", " ");
+			query = query.replaceAll("\\[", " ");
+			query = query.replaceAll("]", " ");
+			query = query.replaceAll(";", " ");
+			query = query.replaceAll(":", " ");
+			query = query.replaceAll("\\?", " ");
+		}
+
 		return query;
 	}
 
@@ -959,5 +979,19 @@ public class EscenicUtils {
 		if (existingEntry != null && existingEntry.getSummary() != null && StringUtils.isNotBlank(existingEntry.getSummary().getSummary())) {
 			existingEntry.setSummary(createSummary(existingEntry.getSummary().getSummary(), "text"));
 		}
+	}
+
+	public boolean isSupportedContentType(String contentType) {
+		if (StringUtils.isNotBlank(contentType)) {
+
+			switch (contentType) {
+				case "Article":
+				case "Video":
+				case "Gallery":
+				case "Code":
+					return true;
+			}
+		}
+			return false;
 	}
 }

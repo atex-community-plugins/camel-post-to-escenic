@@ -7,9 +7,7 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.config.Esceni
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
@@ -27,6 +25,7 @@ import com.polopoly.cm.policy.PolicyCMServer;
 import com.polopoly.user.server.Caller;
 import com.polopoly.user.server.UserId;
 import com.sun.jersey.spi.resource.PerRequest;
+import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
@@ -103,6 +102,11 @@ public class EscenicResource {
 		}
 
 		EscenicUtils escenicUtils = getEscenicUtils();
+		try {
+			query = URIUtil.decode(query);
+		} catch (URIException e) {
+			e.printStackTrace();
+		}
 
 		query =	escenicUtils.getQuery(query);
 
@@ -231,7 +235,7 @@ public class EscenicResource {
 	@GET
 	@Path("getContent")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getContent(@QueryParam("escenicLocation") String escenicLocation) throws ErrorResponseException {
+	public Response getContent(@QueryParam("escenicLocation") String escenicLocation, @QueryParam("contentType") String contentType) throws ErrorResponseException {
 		if (LOGGER.isLoggable(Level.FINEST)) {
 			LOGGER.finest("Getting full version of content from escenic for: " + escenicLocation);
 		}
@@ -242,15 +246,39 @@ public class EscenicResource {
 		try {
 			xml = escenicUtils.retrieveEscenicItem(getEscenicConfig().getContentUrl() + escenicId);
 			Entry entry = escenicUtils.deserializeXml(xml);
-			EscenicContentToExternalReferenceContentConverter escenicContentConverter = new EscenicContentToExternalReferenceContentConverter(getContentManager(), getCurrentCaller());
-			ContentResult cr = escenicContentConverter.process(entry, escenicId);
-			ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
-			if (externalReferenceBean != null) {
-				JSONObject json = new JSONObject();
-				json.put("_type", externalReferenceBean.getObjectType());
-				json.put("id", IdUtil.toIdString(cr.getContentId().getContentId()));
-				return Response.ok(json).build();
+
+			if (entry != null) {
+
+				if (escenicUtils.isSupportedContentType(contentType)) {
+					Control control = entry.getControl();
+					java.util.List<State> stateList = control.getState();
+					boolean validState = false;
+					boolean isExpired = false;
+					if (stateList != null) {
+						for (State state : stateList) {
+							if (StringUtils.equalsIgnoreCase(state.getName(),"published") || StringUtils.equalsIgnoreCase(state.getName(), "draft-published")) {
+								validState = true;
+							}
+							if (StringUtils.equalsIgnoreCase(state.getName(), "post-active")) {
+								isExpired = true;
+							}
+						}
+					}
+
+					if (validState && !isExpired) {
+						EscenicContentToExternalReferenceContentConverter escenicContentConverter = new EscenicContentToExternalReferenceContentConverter(getContentManager(), getCurrentCaller());
+						ContentResult cr = escenicContentConverter.process(entry, escenicId);
+						ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
+						if (externalReferenceBean != null) {
+							JSONObject json = new JSONObject();
+							json.put("_type", externalReferenceBean.getObjectType());
+							json.put("id", IdUtil.toIdString(cr.getContentId().getContentId()));
+							return Response.ok(json).build();
+						}
+					}
+				}
 			}
+
 		} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException | JSONException | NullPointerException e) {
 			throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
 				e.getMessage(),
@@ -284,7 +312,7 @@ public class EscenicResource {
 				if (result != null && result.getStatusLine() != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
 
 					String mimeType = result.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
-
+					//todo change this in the future to avoid loading the thumbnails into memory
 					final ContentType contentType = ContentType.create(
 						Optional.ofNullable(mimeType)
 							.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));

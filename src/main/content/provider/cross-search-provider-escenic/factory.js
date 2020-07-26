@@ -11,6 +11,21 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
       var facetOptions = {};
       var mapFieldName = {};
       var extraFilters = [];
+
+      var successfulCopyNotification = {
+        type: 'success',
+        message: 'Successfully copied to clipboard',
+        persistent: false,
+        notifications: []
+      };
+
+      var notSupportedNotification = {
+        type: 'error',
+        message: 'Copy to clipboard not supported for selected item',
+        persistent: false,
+        notifications: []
+      };
+
       var sortOptions = [
         {
           "label": "Creation Date ↓",
@@ -74,6 +89,14 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
         return result;
       }
 
+      function truncateText(text, length) {
+        if (text !== undefined && text.length <= length) {
+          return text;
+        }
+
+        return text.substr(0, length) + '\u2026'
+      }
+
       function _getType(type) {
         if (type) {
           switch (type) {
@@ -108,6 +131,10 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
               return "Sound Cloud";
             case "com.escenic.person" :
               return "Person";
+            case "com.escenic.section" :
+              return "Section";
+            default:
+              return "Unknown";
           }
         }
       }
@@ -136,7 +163,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
         this.isDate = isDate;
         this.gap = gap;
         this.selected = selected;
-        this.label = label;
+        this.label = truncateText(label, 30);
 
         var uniqueKey = this.value;
         /*
@@ -342,6 +369,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
           return UserProfileService.widgetConfiguration(transferInfo).then(function (widgetCfg) {
 
           var escenicUrl = atex.onecms.ObjectUtils.getByPath(widgetCfg, "url");
+          queryStr = encodeURIComponent(queryStr);
           var url = escenicUrl + "search?query=" + queryStr;
           //calculate the page number
           var pageNumber = (start + 50) / 50;
@@ -349,7 +377,6 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
 
           if (facetFilter !== undefined) {
             url += "&filterQuery=" + cleanupFilterQuery(facetFilter, that).trim();
-
           }
 
           if (that.startDate && that.endDate) {
@@ -360,17 +387,25 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
             url += "&sort=" + that.sort;
           }
 
+          url = encodeURI(url);
           return $http.get(url).then(function (res) {
             that.faceting(res.data);
-            var promises = res.data.entry.map(function (doc) {
-              return formatEscenicItems(doc, escenicUrl);
-            });
-            return $q.all(promises).then(function (docs) {
-              that.numFound = res.data.totalResults;
-              var filteredEscenicDocuments = docs
-              Array.prototype.push.apply(that.results, filteredEscenicDocuments);
-              return filteredEscenicDocuments;
-            });
+            if (res.data.entry !== undefined && res.data.entry.length > 0) {
+              var promises = res.data.entry.map(function (doc) {
+                return formatEscenicItems(doc, escenicUrl);
+              });
+
+              return $q.all(promises).then(function (docs) {
+                that.numFound = res.data.totalResults;
+                var filteredEscenicDocuments = docs
+                Array.prototype.push.apply(that.results, filteredEscenicDocuments);
+                return filteredEscenicDocuments;
+              });
+            } else {
+              Array.prototype.push.apply(that.results, []);
+              that.numFound = 0;
+              return [];
+            }
           }).then(null, function (error) {
             console.log('error', error);
           });
@@ -388,7 +423,7 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
        return UserProfileService.widgetConfiguration(transferInfo).then(function (widgetCfg) {
 
           var escenicUrl = atex.onecms.ObjectUtils.getByPath(widgetCfg, "url");
-          escenicUrl += "getContent?escenicLocation=" + entry.id;
+          escenicUrl += "getContent?escenicLocation=" + entry.id + "&contentType=" + entry.type;
 
           return $http.get(escenicUrl).then(function (res) {
             if (res !== undefined) {
@@ -398,7 +433,11 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
               }];
             }
 
+          }).then(function(result) {
+            ADMUtils.Notification.add(successfulCopyNotification, false);
+            return result;
           }).then(null, function (error) {
+            ADMUtils.Notification.add(notSupportedNotification, false);
             console.log('error', error);
           });
 
