@@ -113,7 +113,9 @@ public class Link {
 		Link link = (Link) o;
 		return Objects.equals(getType(), link.getType()) &&
 			Objects.equals(getHref(), link.getHref()) &&
-			Objects.equals(getIdentifier(), link.getIdentifier());
+			Objects.equals(getIdentifier(), link.getIdentifier()) &&
+			Objects.equals(getState(), link.getState()) &&
+			Objects.equals(getGroup(), link.getGroup());
 	}
 
 	@Override

@@ -631,14 +631,29 @@ public class EscenicUtils {
 					}
 				}
 
-				if (!found && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "pictureRel") && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "com.escenic.inlineRelations")) {
+				if (!found && shouldLinkRelationBeAdded(existinglink)) {
 					existinglink.setTitle(escapeHtml(existinglink.getTitle()));
 					links.add(existinglink);
 				}
 			}
 			return links;
 		}
+
+		if (existingLinks != null) {
+			for (Link exLink : existingLinks) {
+				exLink.setTitle(escapeHtml(exLink.getTitle()));
+			}
+		}
+
 		return existingLinks;
+	}
+
+	private boolean shouldLinkRelationBeAdded(Link existinglink) {
+		if (existinglink != null) {
+			return (!StringUtils.equalsIgnoreCase(existinglink.getGroup(), "pictureRel") && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "com.escenic.inlineRelations"));
+		}
+
+		return false;
 	}
 
 	public String extractIdFromLocation(String escenicLocation) {

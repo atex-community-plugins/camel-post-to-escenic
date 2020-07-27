@@ -286,10 +286,10 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 										e.printStackTrace();
 									}
 								}
-							} else {
-								escenicGallery.setOnecmsContentId(contentId);
-								List<ContentId> collectionItems = collectionAspectBean.getContents();
+							}
+							List<ContentId> collectionItems = collectionAspectBean.getContents();
 
+							if (collectionItems != null) {
 								for (ContentId id : collectionItems) {
 
 									ContentResult<Object> item = escenicUtils.checkAndExtractContentResult(id, contentManager);
@@ -303,7 +303,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 											if (escenicImage != null) {
 												collectionEscenicItems.add(escenicImage);
 											} else {
-												LOGGER.severe( "Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
+												LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
 											}
 										}
 									}
