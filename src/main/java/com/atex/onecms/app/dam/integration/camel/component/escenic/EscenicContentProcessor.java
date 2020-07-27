@@ -16,11 +16,13 @@ import com.atex.onecms.content.aspects.Aspect;
 import com.atex.onecms.content.metadata.MetadataInfo;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
-import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.workflow.WebStatusUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -45,10 +47,11 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class EscenicContentProcessor {
-
 
 	protected EscenicConfig escenicConfig;
 	private Caller latestCaller = null;
@@ -64,6 +67,18 @@ public class EscenicContentProcessor {
 	public static final String STATUS_ATTR_EMBARGO = "attr.embargo";
 	public static final String STATUS_ATTR_ONLINE = "attr.online";
 	public static final String STATUS_ATTR_UNPUBLISHED = "attr.removed";
+
+	private static LoadingCache<String, Optional<JsonObject>> cachedSectionsJsonObject = CacheBuilder.newBuilder()
+		.maximumSize(1)
+		.expireAfterWrite(15, TimeUnit.MINUTES)
+//		.recordStats()
+		.build(new CacheLoader<String, Optional<JsonObject>>() {
+			@Override
+			public Optional<JsonObject> load(String s) throws IOException {
+				return loadSectionListFromEscenic(s);
+			}
+	});
+
 
 	private static EscenicContentProcessor instance;
 
@@ -163,6 +178,23 @@ public class EscenicContentProcessor {
 		}
 	}
 
+	private static Optional<JsonObject> loadSectionListFromEscenic(String key) {
+		String resJson = null;
+		try {
+			resJson = EscenicContentProcessor.getInstance().escenicUtils.retrieveSectionList( EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl()).trim();
+		} catch (Exception e) {
+			LOGGER.severe("exception occurred while reading section list from content:" + e);
+		}
+
+		if (StringUtils.isBlank(resJson)) {
+			throw new RuntimeException("Failed to retrieve section mapping list");
+		}
+
+		JsonObject jsonObject = new Gson().fromJson(resJson, JsonObject.class);
+
+		return Optional.ofNullable(jsonObject);
+
+	}
 	private String extractSectionId(ContentResult cr) throws FailedToRetrieveEscenicContentException, JSONException {
 		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getWebSectionDimension())) {
 			throw new RuntimeException("Web section dimension not specified in the configuration. Unable to proceed");
@@ -185,20 +217,13 @@ public class EscenicContentProcessor {
 				}
 			}
 		}
-		//todo add it back in once we get the mappings via the web service
-//		String resJson = escenicUtils.retrieveSectionList(escenicConfig.getSectionListUrl()).trim();
 
-		String resJson = null;
+		JsonObject jsonObject = null;
 		try {
-			resJson = escenicUtils.retrieveSectionListFromContent(contentManager);
-		} catch (ErrorResponseException e) {
-			LOGGER.severe("exception occurred while reading section list from content:" + e);
+			jsonObject = cachedSectionsJsonObject.get("sectionMapping").get();
+		} catch (ExecutionException e) {
+			throw new RuntimeException("Failed to retrieve section mapping from cache: " + e);
 		}
-		if (StringUtils.isBlank(resJson)) {
-			throw new RuntimeException("Failed to retrieve section mapping");
-		}
-
-		JsonObject jsonObject = new Gson().fromJson(resJson,JsonObject.class);
 
 		if (jsonObject != null) {
 
@@ -217,7 +242,11 @@ public class EscenicContentProcessor {
 								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
 									if (json.get("value") != null) {
 										String value = json.get("value").getAsString();
-										return value;
+										if (!StringUtils.equalsIgnoreCase(value, "null")) {
+											return value;
+										} else {
+											throw new RuntimeException("ID value for websection: " + sectionId + " evaluated to null");
+										}
 									} else {
 										throw new RuntimeException("Unable to resolve the ID for web section: " + sectionId);
 									}
