@@ -155,7 +155,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 	}
 
 	protected static String addOnecmsIdToSocialEmbeds(String structuredText, List<EscenicContent> escenicContentList) {
-		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, (e) -> {
+		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, true, (e) -> {
 			final CustomEmbedParser.SmartEmbed embed = customEmbedParser.createSmartEmbedFromElement(e);
 			if (embed != null) {
 				for (EscenicContent escenicContent : escenicContentList) {
@@ -198,7 +198,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 	}
 
 	protected String replaceEmbeds(String structuredText, List<EscenicContent> escenicContentList) {
-		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, (e) -> {
+		final String body = customEmbedParser.processSmartEmbedToHtml(structuredText, false, (e) -> {
 			final CustomEmbedParser.SmartEmbed embed = customEmbedParser.createSmartEmbedFromElement(e);
 			if (embed != null) {
 

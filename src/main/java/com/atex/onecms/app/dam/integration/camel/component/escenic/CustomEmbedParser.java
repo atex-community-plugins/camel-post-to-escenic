@@ -19,8 +19,9 @@ import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import com.atex.onecms.content.IdUtil;
+import org.jsoup.nodes.Entities;
 
-	/**
+/**
 	 * Parse a body text and extract smart embeds & social embeds
 	 *
 	 * @author mnova
@@ -79,9 +80,16 @@ import com.atex.onecms.content.IdUtil;
 			return elementsList;
 		}
 
-		public String processSmartEmbedToHtml(final String html, final Consumer<Element> c) {
+		public String processSmartEmbedToHtml(final String html, final boolean disablePrettyPrint, final Consumer<Element> c) {
 			final Document doc = processSmartEmbed(html, c);
-			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+
+			if (disablePrettyPrint) {
+				doc.outputSettings().escapeMode(Entities.EscapeMode.base);
+				doc.outputSettings().prettyPrint(false);
+			} else {
+				doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+			}
+
 			return doc.body().html();
 		}
 

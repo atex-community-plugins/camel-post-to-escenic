@@ -440,8 +440,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escenicImage.getTitle(), null, null));
-					fields.add(createField("caption", escenicImage.getCaption(), null, null));
+					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -453,8 +453,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escenicImage.getTitle(), null, null));
-					fields.add(createField("caption", escenicImage.getCaption(), null, null));
+					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -476,7 +476,7 @@ public class EscenicUtils {
 
 				if (escenicGallery.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escenicGallery.getTitle(), null, null));
+					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -487,7 +487,7 @@ public class EscenicUtils {
 
 				if (escenicContent.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escenicGallery.getTitle(), null, null));
+					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -500,7 +500,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicEmbed) {
 				EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escenicEmbed.getTitle(), null, null));
+				fields.add(createField("title", escapeHtml(escenicEmbed.getTitle()), null, null));
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY,
 					escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
 					escenicEmbed.getTitle(), PUBLISHED_STATE);
@@ -511,7 +511,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicContentReference) {
 				EscenicContentReference escenicContentReference = (EscenicContentReference) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escenicContentReference.getTitle(), null, null));
+				fields.add(createField("title", escapeHtml(escenicContentReference.getTitle()), null, null));
 
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, "/content-summary/" + escenicContentReference.getType(),
 					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
