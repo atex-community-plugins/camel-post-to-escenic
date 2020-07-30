@@ -50,7 +50,6 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 		escenicEmbed.setEscenicLocation(existingEscenicLocation);
 		escenicEmbed.setEscenicId(escenicId);
 		escenicEmbed.setTitle(embedBean.getName());
-		escenicEmbed.setEmbedCode(embedCode);
 		escenicEmbed.setEmbedUrl(embedUrl);
 		escenicEmbed.setOnecmsContentId(contentId);
 		List<Link> links = escenicUtils.generateLinks(escenicEmbed);

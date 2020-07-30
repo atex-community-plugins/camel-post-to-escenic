@@ -807,15 +807,10 @@ public class EscenicUtils {
 				for (Element element : document.children()) {
 					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
 						if (StringUtils.isNotBlank(element.text())) {
-
 							return element.text();
 						}
 					}
 
-				}
-				Element element = document.select("p").first();
-				if (element != null && StringUtils.isNotBlank(element.text())) {
-					return element.text();
 				}
 			}
 

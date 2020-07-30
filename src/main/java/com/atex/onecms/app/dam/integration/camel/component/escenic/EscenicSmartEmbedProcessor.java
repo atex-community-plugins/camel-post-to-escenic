@@ -144,7 +144,6 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		List<Field> embedDetailsFields = new ArrayList<Field>();
 		embedDetailsFields.add(escenicUtils.createField("network", socialEmbed.getSocialNetwork(), null, null));
 		embedDetailsFields.add(escenicUtils.createField("url", socialEmbed.getEmbedUrl(), null, null));
-		embedDetailsFields.add(escenicUtils.createField("embedCode", escenicUtils.wrapWithCDATA(socialEmbed.getEmbedCode()), null, null));
 		embedFields.add(escenicUtils.createField("socialEmbeds", null, embedDetailsFields, null));
 		embedFields.add(escenicUtils.createField("title", socialEmbed.getSocialNetwork(), null, null));
 		p.setField(embedFields);
