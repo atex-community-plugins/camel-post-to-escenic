@@ -836,13 +836,6 @@ public class EscenicUtils {
 						}
 					}
 				}
-
-
-				Element element = doc.select("p").first();
-				if (element != null && StringUtils.isNotBlank(element.text())) {
-					element.remove();
-					return document.body().html();
-				}
 		}
 
 		return text;
