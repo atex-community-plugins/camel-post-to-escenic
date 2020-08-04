@@ -5,7 +5,7 @@
   <description>Camel Post To Escenic Plugin</description>
   <groupId>com.atex.plugins</groupId>
   <artifactId>camel-post-to-escenic</artifactId>
-  <version>0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <packaging>jar</packaging>
 
   <parent>
