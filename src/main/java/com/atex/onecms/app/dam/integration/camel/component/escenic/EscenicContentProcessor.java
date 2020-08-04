@@ -181,7 +181,7 @@ public class EscenicContentProcessor {
 	private static Optional<JsonObject> loadSectionListFromEscenic(String key) {
 		String resJson = null;
 		try {
-			resJson = EscenicContentProcessor.getInstance().escenicUtils.retrieveSectionList( EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl()).trim();
+			resJson = EscenicContentProcessor.getInstance().escenicUtils.retrieveSectionList(EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl()).trim();
 		} catch (Exception e) {
 			LOGGER.severe("exception occurred while reading section list from content:" + e);
 		}

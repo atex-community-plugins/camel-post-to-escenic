@@ -997,4 +997,21 @@ public class EscenicUtils {
 		}
 			return false;
 	}
+
+	public String getFieldValueFromPropertyBag(CustomArticleBean article, String field) {
+		Map<String, Map<String, String>> propertyBag = article.getPropertyBag();
+		if (propertyBag.size() > 0) {
+			for (String groupKey : propertyBag.keySet()) {
+				if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
+					Map<String, String> groupMap = propertyBag.get(groupKey);
+					for (String key : groupMap.keySet()) {
+						if (StringUtils.equalsIgnoreCase(key, field)) {
+							return groupMap.get(key);
+						}
+					}
+				}
+			}
+		}
+		return "";
+	}
 }
