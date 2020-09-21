@@ -460,7 +460,7 @@ public class EscenicUtils {
 
 			if (escenicContent instanceof EscenicImage) {
 				EscenicImage escenicImage = (EscenicImage) escenicContent;
-				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), "image/png",
+				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
 					null, null, null, null, null, null);
 
 				if (link != null) {
@@ -496,7 +496,7 @@ public class EscenicUtils {
 
 			} else if (escenicContent instanceof EscenicGallery) {
 				EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
-				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), "image/png",
+				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
 					null, null, null, null, null, null);
 
 				if (link != null) {
@@ -542,7 +542,7 @@ public class EscenicUtils {
 				List<Field> fields = new ArrayList<>();
 				fields.add(createField("title", escapeHtml(escenicContentReference.getTitle()), null, null));
 
-				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, "/content-summary/" + escenicContentReference.getType(),
+				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null,  EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType(),
 					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
 					escenicContentReference.getTitle(), PUBLISHED_STATE);
 
@@ -1042,12 +1042,8 @@ public class EscenicUtils {
 					}
 				}
 			}
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();
-		} catch (InvocationTargetException e) {
-			e.printStackTrace();
-		} catch (NoSuchMethodException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve value from property bag", e);
 		}
 
 		return "";
@@ -1060,6 +1056,7 @@ public class EscenicUtils {
 				return getStructuredText((StructuredText) property);
 			}
 		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve structured text field", e);
 		}
 		return null;
 	}
@@ -1071,7 +1068,9 @@ public class EscenicUtils {
 				return (String) property;
 			}
 		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve value for field: " + field, e);
 		}
 		return null;
 	}
+
 }

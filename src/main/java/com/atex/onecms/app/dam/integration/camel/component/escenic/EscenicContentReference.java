@@ -2,6 +2,7 @@ package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
 public class EscenicContentReference extends EscenicContent {
 
+	protected static final String MODEL_CONTENT_SUMMARY_PREFIX = "/content-summary/";
 	protected static final String CONTENT_REFERENCE_TYPE = "article";
 	protected static final String ESCENIC_IMAGE_TYPE = "picture";
 	protected static final String ESCENIC_GALLERY_TYPE = "gallery";

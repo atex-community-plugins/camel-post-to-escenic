@@ -37,7 +37,7 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
-import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
@@ -277,7 +277,7 @@ public class EscenicResource {
 					if (validState && !isExpired) {
 						EscenicContentToExternalReferenceContentConverter escenicContentConverter = new EscenicContentToExternalReferenceContentConverter(getContentManager(), getCurrentCaller());
 						ContentResult cr = escenicContentConverter.process(entry, escenicId);
-						OneArticleBean externalReferenceBean = (OneArticleBean) cr.getContent().getContentData();
+						ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
 						if (externalReferenceBean != null) {
 							JSONObject json = new JSONObject();
 							json.put("_type", externalReferenceBean.getObjectType());

@@ -162,9 +162,9 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
 		OneArticleBean articleBean = (OneArticleBean) oneArticleBean;
 		fields.add(escenicUtils.createField("title", escenicUtils.escapeHtml(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
-		fields.add(escenicUtils.createField("headlinePrefix", escenicUtils.getField (articleBean, "headlinePrefix"), null, null));
+		fields.add(escenicUtils.createField("headlinePrefix", escenicUtils.getField(articleBean, "headlinePrefix"), null, null));
 		fields.add(escenicUtils.createField("articleFlagLabel", escenicUtils.getFieldValueFromPropertyBag(articleBean, "headlineLabel"), null, null));
-		fields.add(escenicUtils.createField("articleLayout", escenicUtils.getField (articleBean, "articleType").toLowerCase(), null, null));
+		fields.add(escenicUtils.createField("articleLayout", escenicUtils.getField(articleBean, "articleType").toLowerCase(), null, null));
 		fields.add(escenicUtils.createField("byline", articleBean.getByline(), null, null));
 		fields.add(escenicUtils.createField("originalSource", articleBean.getSource(), null, null));
 		fields.add(escenicUtils.createField("leadtext", escenicUtils.getFirstBodyParagraph(escenicUtils.getStructuredText(articleBean.getBody())), null, null));

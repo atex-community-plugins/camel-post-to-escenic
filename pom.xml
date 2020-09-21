@@ -71,7 +71,6 @@
     <camel.version>2.24.2</camel.version>
     <spring.version>5.1.6.RELEASE</spring.version>
     <desk.version>2.12.2-SNAPSHOT</desk.version>
-    <adm.binary.version>2.5.3-SNAPSHOT</adm.binary.version>
   </properties>
 
   <dependencies>
