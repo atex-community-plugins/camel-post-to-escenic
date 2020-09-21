@@ -1,20 +1,27 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
-import com.atex.onecms.app.dam.standard.aspects.CustomArticleBean;
-import com.atex.onecms.app.dam.util.DamEngagementUtils;
-import com.atex.onecms.content.*;
-import com.atex.onecms.content.Content;
-import com.polopoly.cm.policy.PolicyCMServer;
-import org.apache.commons.lang.StringUtils;
-import org.apache.http.client.methods.CloseableHttpResponse;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
+import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.util.DamEngagementUtils;
+import com.atex.onecms.content.Content;
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.IdUtil;
+import com.polopoly.cm.policy.PolicyCMServer;
+import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.methods.CloseableHttpResponse;
 
 public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 
@@ -41,7 +48,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	protected List<EscenicContent> process(ContentResult<Object> cr, DamEngagementUtils utils, CustomArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
+	protected List<EscenicContent> process(ContentResult<Object> cr, DamEngagementUtils utils, OneArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
 		LOGGER.finest("Processing smart embeds");
 		List<EscenicContent> escenicContentList = new ArrayList<>();
 		if (cr.getStatus().isSuccess()) {

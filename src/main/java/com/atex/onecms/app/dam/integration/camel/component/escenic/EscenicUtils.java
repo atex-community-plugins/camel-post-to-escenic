@@ -1,5 +1,36 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 import com.atex.gong.utils.WsErrorUtil;
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
@@ -7,19 +38,37 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.Esc
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Group;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Publication;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Query;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Summary;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Value;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.ws.EscenicResource;
-import com.atex.onecms.app.dam.standard.aspects.*;
-import com.atex.onecms.content.*;
+import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.standard.aspects.OneContentBean;
+import com.atex.onecms.content.ConfigurationDataBean;
+import com.atex.onecms.content.ContentId;
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.repository.StorageException;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.plugins.structured.text.StructuredText;
 import com.google.common.base.CharMatcher;
-
 import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -44,26 +93,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-
-import javax.xml.bind.*;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author jakub
@@ -998,20 +1027,51 @@ public class EscenicUtils {
 			return false;
 	}
 
-	public String getFieldValueFromPropertyBag(CustomArticleBean article, String field) {
-		Map<String, Map<String, String>> propertyBag = article.getPropertyBag();
-		if (propertyBag.size() > 0) {
-			for (String groupKey : propertyBag.keySet()) {
-				if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
-					Map<String, String> groupMap = propertyBag.get(groupKey);
-					for (String key : groupMap.keySet()) {
-						if (StringUtils.equalsIgnoreCase(key, field)) {
-							return groupMap.get(key);
+	public String getFieldValueFromPropertyBag(OneArticleBean article, String field) {
+		try {
+			Map<String, Map<String, String>> propertyBag = (Map<String, Map<String, String>>) PropertyUtils.getProperty(article, "propertyBag");
+			if (propertyBag.size() > 0) {
+				for (String groupKey : propertyBag.keySet()) {
+					if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
+						Map<String, String> groupMap = propertyBag.get(groupKey);
+						for (String key : groupMap.keySet()) {
+							if (StringUtils.equalsIgnoreCase(key, field)) {
+								return groupMap.get(key);
+							}
 						}
 					}
 				}
 			}
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		} catch (InvocationTargetException e) {
+			e.printStackTrace();
+		} catch (NoSuchMethodException e) {
+			e.printStackTrace();
 		}
+
 		return "";
+	}
+
+	public String getStructuredText(OneArticleBean article, String field) {
+		try {
+			Object property = PropertyUtils.getProperty(article, field);
+			if (property instanceof StructuredText) {
+				return getStructuredText((StructuredText) property);
+			}
+		} catch (Exception e) {
+		}
+		return null;
+	}
+
+	public String getField(OneArticleBean article, String field) {
+		try {
+			Object property = PropertyUtils.getProperty(article, field);
+			if (property instanceof String) {
+				return (String) property;
+			}
+		} catch (Exception e) {
+		}
+		return null;
 	}
 }

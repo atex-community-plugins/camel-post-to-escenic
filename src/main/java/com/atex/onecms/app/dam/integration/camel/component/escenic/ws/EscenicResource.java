@@ -1,5 +1,30 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic.ws;
 
+import static com.polopoly.service.cm.api.StatusCode.SERVER_ERROR;
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.servlet.ServletContext;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicConfig;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicContentToExternalReferenceContentConverter;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicUtils;
@@ -7,8 +32,12 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.config.Esceni
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
-import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
+import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
@@ -28,7 +57,6 @@ import com.sun.jersey.spi.resource.PerRequest;
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
-import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -42,25 +70,6 @@ import org.apache.http.util.EntityUtils;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import org.springframework.util.StreamUtils;
-
-import java.io.*;
-import java.net.URISyntaxException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.servlet.ServletContext;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Unmarshaller;
-import java.net.URI;
-import java.util.Optional;
-
-import static com.polopoly.service.cm.api.StatusCode.SERVER_ERROR;
-import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 
 @Path("/api")
 @PerRequest
@@ -268,7 +277,7 @@ public class EscenicResource {
 					if (validState && !isExpired) {
 						EscenicContentToExternalReferenceContentConverter escenicContentConverter = new EscenicContentToExternalReferenceContentConverter(getContentManager(), getCurrentCaller());
 						ContentResult cr = escenicContentConverter.process(entry, escenicId);
-						ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
+						OneArticleBean externalReferenceBean = (OneArticleBean) cr.getContent().getContentData();
 						if (externalReferenceBean != null) {
 							JSONObject json = new JSONObject();
 							json.put("_type", externalReferenceBean.getObjectType());

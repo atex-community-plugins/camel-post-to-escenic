@@ -67,11 +67,11 @@
   </scm>
 
   <properties>
-    <polopoly.version>10.18.3</polopoly.version>
+    <polopoly.version>10.18.3-fp2</polopoly.version>
     <camel.version>2.24.2</camel.version>
     <spring.version>5.1.6.RELEASE</spring.version>
-    <desk.version>2.12.1</desk.version>
-    <adm.binary.version>2.5.0-SNAPSHOT</adm.binary.version>
+    <desk.version>2.12.2-SNAPSHOT</desk.version>
+    <adm.binary.version>2.5.3-SNAPSHOT</adm.binary.version>
   </properties>
 
   <dependencies>
@@ -98,27 +98,6 @@
       <scope>provided</scope>
     </dependency>
 
-    <dependency>
-      <groupId>com.polopoly</groupId>
-      <artifactId>polopoly</artifactId>
-      <version>${polopoly.version}</version>
-      <classifier>api</classifier>
-      <type>jar</type>
-    </dependency>
-
-    <dependency>
-      <groupId>com.atex.adm.packaged</groupId>
-      <artifactId>onecms-custom-beans</artifactId>
-      <version>${adm.binary.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.atex.adm.packaged</groupId>
-      <artifactId>onecms-custom-source</artifactId>
-      <version>${adm.binary.version}</version>
-      <scope>provided</scope>
-    </dependency>
 
     <dependency>
       <groupId>org.apache.camel</groupId>
