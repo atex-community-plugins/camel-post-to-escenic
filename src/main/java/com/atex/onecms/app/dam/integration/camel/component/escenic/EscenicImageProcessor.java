@@ -461,7 +461,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
 
-		fields.add(escenicUtils.createField("title", oneImageBean.getName(), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeHtml(oneImageBean.getName()), null, null));
 		fields.add(escenicUtils.createField("description", oneImageBean.getDescription(), null, null));
 		fields.add(escenicUtils.createField("photographer", oneImageBean.getCredit(), null, null));
 		fields.add(escenicUtils.createField("caption", oneImageBean.getCaption(), null, null));
@@ -489,7 +489,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			}
 
 			link.setType("image/" + imgExt);
-			link.setTitle(oneImageBean.getName());
+			link.setTitle(escenicUtils.escapeHtml(oneImageBean.getName()));
 			fields.add(escenicUtils.createField("binary", link, null, null));
 		}
 		return fields;
@@ -500,7 +500,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		escenicImage.setEscenicLocation(escenicLocation);
 		escenicImage.setOnecmsContentId(contentId);
 		escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-		escenicImage.setTitle(oneImageBean.getName());
+		escenicImage.setTitle(escenicUtils.escapeHtml(oneImageBean.getName()));
 		escenicImage.setCaption(oneImageBean.getCaption());
 		List<Link> links = escenicUtils.generateLinks(escenicImage);
 		escenicImage.setLinks(links);
