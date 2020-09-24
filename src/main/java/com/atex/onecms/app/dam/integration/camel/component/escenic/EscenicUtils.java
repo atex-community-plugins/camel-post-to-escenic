@@ -1030,7 +1030,7 @@ public class EscenicUtils {
 	public String getFieldValueFromPropertyBag(OneArticleBean article, String field) {
 		try {
 			Map<String, Map<String, String>> propertyBag = (Map<String, Map<String, String>>) PropertyUtils.getProperty(article, "propertyBag");
-			if (propertyBag.size() > 0) {
+			if (propertyBag != null && propertyBag.size() > 0) {
 				for (String groupKey : propertyBag.keySet()) {
 					if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
 						Map<String, String> groupMap = propertyBag.get(groupKey);
@@ -1041,12 +1041,15 @@ public class EscenicUtils {
 						}
 					}
 				}
+			} else {
+				LOGGER.log(Level.SEVERE, "Failed to retrieve value from property bag - property bag doesn't exist or is empty.");
 			}
+
 		} catch (Exception e) {
 			LOGGER.log(Level.SEVERE, "Failed to retrieve value from property bag", e);
 		}
 
-		return "";
+		return null;
 	}
 
 	public String getStructuredText(OneArticleBean article, String field) {
