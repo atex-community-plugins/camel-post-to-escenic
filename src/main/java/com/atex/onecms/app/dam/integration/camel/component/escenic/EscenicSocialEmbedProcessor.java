@@ -239,7 +239,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 												escenicGallery.setId("_" + UUID.randomUUID().toString());
 											}
 											String newHtml = "<p><a href=\"" + escenicGallery.getEscenicLocation() + "\" id=\"" + escenicGallery.getId() + "\" alt=\"undefined\">" +
-												escenicUtils.escapeHtml(escenicGallery.getTitle()) + "</a></p>";
+												escenicUtils.escapeXml(escenicGallery.getTitle()) + "</a></p>";
 
 											final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 											e.replaceWith(ne);
@@ -272,7 +272,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 												case EscenicContentReference.ESCENIC_GALLERY_TYPE:
 												case EscenicContentReference.ESCENIC_SOCIAL_EMBED_TYPE:
 													newHtml = "<p><a href=\"" + escenicContentReference.getEscenicLocation() + "\" id=\"" + escenicContentReference.getId() + "\">" +
-														escenicUtils.escapeHtml(escenicContentReference.getTitle()) + "</a></p>";
+														escenicUtils.escapeXml(escenicContentReference.getTitle()) + "</a></p>";
 													break;
 												case EscenicContentReference.ESCENIC_IMAGE_TYPE:
 													newHtml = "<p><img src=\"" + escenicContentReference.getThumbnailUrl() + "\" alt=\"undefined\" id=\"" + escenicContentReference.getId() + "\"></img></p>";
@@ -306,7 +306,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 													escenicEmbed.setId("_" + UUID.randomUUID().toString());
 												}
 												String newHtml = "<p><a href=\"" + escenicEmbed.getEscenicLocation() + "\" id=\"" + escenicEmbed.getId() + "\">" +
-													 escenicUtils.escapeHtml(escenicEmbed.getTitle()) + "</a></p>";
+													 escenicUtils.escapeXml(escenicEmbed.getTitle()) + "</a></p>";
 
 												final Element ne = Jsoup.parseBodyFragment(newHtml).body().child(0);
 												e.replaceWith(ne);
