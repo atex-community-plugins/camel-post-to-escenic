@@ -1084,22 +1084,14 @@ public class EscenicUtils {
 		if (field != null) {
 			if (field.getValue() != null && field.getValue().getValue() != null) {
 				for (Object o : field.getValue().getValue()) {
-
 					if (o != null) {
-
 						if (o instanceof String) {
 							return o.toString();
 						}
-
-//						//todo review this again - what are the occasions when we actually get different type than a String?
-//						if (o instanceof List) {
-//
-//						}
 					}
 				}
 			}
 		}
-
 		return null;
 	}
 
@@ -1109,7 +1101,7 @@ public class EscenicUtils {
 				existingFields.forEach(field -> {
 					AtomicBoolean managedByEscenic = new AtomicBoolean(true);
 					newFields.forEach(newField -> {
-							//just for the image type..
+						//just for the image type..
 						if (!isBinaryField(field)) {
 							if (field != null && field.fieldNameEqualsIgnoreCase(newField)) {
 								field.setValue(newField.getValue());
@@ -1118,7 +1110,6 @@ public class EscenicUtils {
 						}
 					});
 
-					//todo do we need to make this a bit more clever? we assume that we always get a value in certain format/struture here...
 					if (!isBinaryField(field) && managedByEscenic.get()) {
 						if (field != null && field.getValue() != null && field.getValue().getValue() != null && !field.getValue().getValue().isEmpty()) {
 							String value = getFieldRealValue(field);
