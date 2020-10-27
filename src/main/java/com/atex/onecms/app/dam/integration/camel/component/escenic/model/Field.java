@@ -1,5 +1,7 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic.model;
 
+import org.apache.commons.lang.StringUtils;
+
 import javax.xml.bind.annotation.*;
 import java.util.List;
 
@@ -77,4 +79,7 @@ public class Field {
 		this.value = value;
 	}
 
+	public boolean fieldNameEqualsIgnoreCase(Field otherField) {
+		return StringUtils.equalsIgnoreCase(this.getName(), otherField.getName());
+	}
 }

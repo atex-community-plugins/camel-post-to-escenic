@@ -137,21 +137,18 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 	}
 
 	private Entry processExistingArticle(Entry existingEntry, Entry entry) {
-		List<Field> existingFields = existingEntry.getContent().getPayload().getField();
-		List<Field> newFields = entry.getContent().getPayload().getField();
-		for (Field field : existingFields) {
-			for (Field newField : newFields) {
-				if (StringUtils.equalsIgnoreCase(field.getName(), newField.getName())) {
-					field.setValue(newField.getValue());
-				}
-			}
-		}
+		List<Field> existingFields = escenicUtils.getFieldsForEntry(existingEntry);
+		List<Field> newFields = escenicUtils.getFieldsForEntry(entry);
+
+		existingFields = escenicUtils.generateUpdatedListOfFields(existingFields, newFields);
+		existingEntry.getContent().getPayload().setField(existingFields);
+
 		existingEntry.setControl(entry.getControl());
 		existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 		existingEntry.setTitle(entry.getTitle());
 		existingEntry.setAvailable(entry.getAvailable());
 		existingEntry.setExpires(entry.getExpires());
-		existingEntry.setSummary(entry.getSummary());
+		escenicUtils.cleanUpSummary(existingEntry);
 		existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
 		return existingEntry;
 	}
@@ -161,7 +158,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		List<Field> fields = new ArrayList<Field>();
 
 		OneArticleBean articleBean = (OneArticleBean) oneArticleBean;
-		fields.add(escenicUtils.createField("title", escenicUtils.escapeHtml(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeXml(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
 		fields.add(escenicUtils.createField("headlinePrefix", escenicUtils.getField(articleBean, "headlinePrefix"), null, null));
 		fields.add(escenicUtils.createField("articleFlagLabel", escenicUtils.getFieldValueFromPropertyBag(articleBean, "headlineLabel"), null, null));
 		fields.add(escenicUtils.createField("articleLayout", escenicUtils.getField(articleBean, "articleType").toLowerCase(), null, null));

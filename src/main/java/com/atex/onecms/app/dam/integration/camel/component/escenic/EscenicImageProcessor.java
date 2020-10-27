@@ -33,6 +33,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -192,24 +193,18 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	private Entry processExistingImage(Entry existingEntry, Entry entry) {
 		if (existingEntry != null && entry != null) {
-			List<Field> existingFields = existingEntry.getContent().getPayload().getField();
-			List<Field> newFields = entry.getContent().getPayload().getField();
-			for (Field field : existingFields) {
-				for (Field newField : newFields) {
-					//modify all fields but binary location.
-					if (StringUtils.isNotBlank(field.getName()) && !StringUtils.equalsIgnoreCase(field.getName(), "binary")) {
-						if (StringUtils.equalsIgnoreCase(field.getName(), newField.getName())) {
-							field.setValue(newField.getValue());
-						}
-					}
-				}
-			}
+			List<Field> existingFields = escenicUtils.getFieldsForEntry(existingEntry);
+			List<Field> newFields = escenicUtils.getFieldsForEntry(entry);
+
+			existingFields = escenicUtils.generateUpdatedListOfFields(existingFields, newFields);
+			existingEntry.getContent().getPayload().setField(existingFields);
 
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
 			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 			//we're resetting the summary to ensure invalid xhtml chars are being escaped
 			escenicUtils.cleanUpSummary(existingEntry);
+			existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
 			return existingEntry;
 		}
 		return entry;
@@ -461,7 +456,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
 
-		fields.add(escenicUtils.createField("title", escenicUtils.escapeHtml(oneImageBean.getName()), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeXml(oneImageBean.getName()), null, null));
 		fields.add(escenicUtils.createField("description", oneImageBean.getDescription(), null, null));
 		fields.add(escenicUtils.createField("photographer", oneImageBean.getCredit(), null, null));
 		fields.add(escenicUtils.createField("caption", oneImageBean.getCaption(), null, null));
@@ -489,7 +484,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			}
 
 			link.setType("image/" + imgExt);
-			link.setTitle(escenicUtils.escapeHtml(oneImageBean.getName()));
+			link.setTitle(escenicUtils.escapeXml(oneImageBean.getName()));
 			fields.add(escenicUtils.createField("binary", link, null, null));
 		}
 		return fields;
@@ -500,7 +495,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		escenicImage.setEscenicLocation(escenicLocation);
 		escenicImage.setOnecmsContentId(contentId);
 		escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-		escenicImage.setTitle(escenicUtils.escapeHtml(oneImageBean.getName()));
+		escenicImage.setTitle(escenicUtils.escapeXml(oneImageBean.getName()));
 		escenicImage.setCaption(oneImageBean.getCaption());
 		List<Link> links = escenicUtils.generateLinks(escenicImage);
 		escenicImage.setLinks(links);

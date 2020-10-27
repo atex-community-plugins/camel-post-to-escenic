@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +13,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -235,7 +235,7 @@ public class EscenicUtils {
 		if (value != null) {
 			if (value instanceof String) {
 				if (!isValueEscaped(fieldName)) {
-					value = escapeHtml(value.toString());
+					value = escapeXml(value.toString());
 				}
 			}
 			return new Value(Arrays.asList(new Object[]{value}));
@@ -469,8 +469,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
-					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
+					fields.add(createField("title", escapeXml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -482,8 +482,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
-					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
+					fields.add(createField("title", escapeXml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -505,7 +505,7 @@ public class EscenicUtils {
 
 				if (escenicGallery.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
+					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -516,7 +516,7 @@ public class EscenicUtils {
 
 				if (escenicContent.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
+					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -529,7 +529,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicEmbed) {
 				EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escapeHtml(escenicEmbed.getTitle()), null, null));
+				fields.add(createField("title", escapeXml(escenicEmbed.getTitle()), null, null));
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY,
 					escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
 					escenicEmbed.getTitle(), PUBLISHED_STATE);
@@ -540,7 +540,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicContentReference) {
 				EscenicContentReference escenicContentReference = (EscenicContentReference) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escapeHtml(escenicContentReference.getTitle()), null, null));
+				fields.add(createField("title", escapeXml(escenicContentReference.getTitle()), null, null));
 
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null,  EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType(),
 					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
@@ -574,11 +574,11 @@ public class EscenicUtils {
 		link.setState(state);
 		link.setPayload(payload);
 		link.setIdentifier(identifier);
-		link.setTitle(escapeHtml(title));
+		link.setTitle(escapeXml(title));
 		return link;
 	}
 
-	protected String escapeHtml(String text) {
+	protected String escapeXml(String text) {
 		return StringEscapeUtils.escapeXml10(removeHtmlTags(text));
 	}
 
@@ -661,7 +661,7 @@ public class EscenicUtils {
 				}
 
 				if (!found && shouldLinkRelationBeAdded(existinglink)) {
-					existinglink.setTitle(escapeHtml(existinglink.getTitle()));
+					existinglink.setTitle(escapeXml(existinglink.getTitle()));
 					links.add(existinglink);
 				}
 			}
@@ -670,7 +670,7 @@ public class EscenicUtils {
 
 		if (existingLinks != null) {
 			for (Link exLink : existingLinks) {
-				exLink.setTitle(escapeHtml(exLink.getTitle()));
+				exLink.setTitle(escapeXml(exLink.getTitle()));
 			}
 		}
 
@@ -906,14 +906,14 @@ public class EscenicUtils {
 	public Title createTitle(String value, String type) {
 		Title title = new Title();
 		title.setType(type);
-		title.setTitle(escapeHtml(value));
+		title.setTitle(escapeXml(value));
 		return title;
 	}
 
 	public Summary createSummary(String value, String type) {
 		Summary summary = new Summary();
 		summary.setType(type);
-		summary.setSummary(escapeHtml(value));
+		summary.setSummary(escapeXml(value));
 		return summary;
 	}
 
@@ -995,12 +995,12 @@ public class EscenicUtils {
 
 	public Publication cleanUpPublication(Publication publication) {
 		if (publication != null) {
-			publication.setTitle(escapeHtml(publication.getTitle()));
+			publication.setTitle(escapeXml(publication.getTitle()));
 			List<Link> links = publication.getLink();
 
 			if (links != null) {
 				for (Link link : links) {
-					link.setTitle(escapeHtml(link.getTitle()));
+					link.setTitle(escapeXml(link.getTitle()));
 				}
 			}
 		}
@@ -1076,4 +1076,84 @@ public class EscenicUtils {
 		return null;
 	}
 
+	public boolean isBinaryField(Field field) {
+		return StringUtils.isNotBlank(field.getName()) && StringUtils.equalsIgnoreCase(field.getName(), "binary");
+	}
+
+	public String getFieldRealValue(Field field) {
+		if (field != null) {
+			if (field.getValue() != null && field.getValue().getValue() != null) {
+				for (Object o : field.getValue().getValue()) {
+					if (o != null) {
+						if (o instanceof String) {
+							return o.toString();
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	public List generateUpdatedListOfFields(List<Field> existingFields, List<Field> newFields) {
+		if (newFields != null && !newFields.isEmpty()) {
+			if (existingFields != null && !existingFields.isEmpty()) {
+				existingFields.forEach(field -> {
+					AtomicBoolean managedByEscenic = new AtomicBoolean(true);
+					newFields.forEach(newField -> {
+						//just for the image type..
+						if (!isBinaryField(field)) {
+							if (field != null && field.fieldNameEqualsIgnoreCase(newField)) {
+								field.setValue(newField.getValue());
+								managedByEscenic.set(false);
+							}
+						}
+					});
+
+					if (!isBinaryField(field) && managedByEscenic.get()) {
+						if (field != null && field.getValue() != null && field.getValue().getValue() != null && !field.getValue().getValue().isEmpty()) {
+							String value = getFieldRealValue(field);
+							Field escapedField = createField(field.getName(), escapeXml(value == null ? "" : value), null, null);
+							field.setValue(escapedField.getValue());
+						}
+					}
+				});
+			} else {
+				LOGGER.log(Level.WARNING, "Unable to generate update list of fields - existing fields list was either null or empty.");
+			}
+		} else {
+			LOGGER.log(Level.WARNING, "Unable to generate update list of fields - new fields list was either null or empty.");
+		}
+
+		return existingFields;
+	}
+
+	public boolean checkIfEntryHasContentPayloadAndListOfFields(Entry entry) {
+		if (entry != null) {
+			if (entry.getContent() != null) {
+				if (entry.getContent().getPayload() != null) {
+					if (entry.getContent().getPayload().getField() != null) {
+						return true;
+					} else {
+						LOGGER.log(Level.WARNING, "Validating Entry failed - list of fields not found.");
+					}
+				} else {
+					LOGGER.log(Level.WARNING, "Validating Entry failed - Payload not found.");
+				}
+			} else {
+				LOGGER.log(Level.WARNING, "Validating Entry failed - Content not found.");
+			}
+		} else {
+			LOGGER.log(Level.WARNING, "Validating Entry failed - Entry was null.");
+		}
+
+		return false;
+	}
+
+	public List getFieldsForEntry(Entry entry) {
+		if (checkIfEntryHasContentPayloadAndListOfFields(entry)) {
+			return entry.getContent().getPayload().getField();
+		}
+		return null;
+	}
 }
