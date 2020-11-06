@@ -238,7 +238,7 @@ public class EscenicResource {
 				SC_INTERNAL_SERVER_ERROR, e);
 		}
 
-		return Response.serverError().build();
+		return Response.serverError().entity("No preview link available - is it a draft content? (No Alternate link in content atom entry)").build();
 	}
 
 	@GET
