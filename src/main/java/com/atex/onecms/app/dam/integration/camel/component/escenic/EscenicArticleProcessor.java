@@ -57,8 +57,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 	private String processArticle(OneArticleBean article, Entry existingEntry, List<EscenicContent> escenicContentList, EscenicConfig escenicConfig, String action) {
 
 		Entry entry = new Entry();
-		Title title = escenicUtils.createTitle(escenicUtils.getStructuredText(article.getHeadline()), "text");
-		Summary summary = escenicUtils.createSummary(escenicUtils.getStructuredText(article, "subHeadline"), "text");
+		Title title = escenicUtils.createTitle(escenicUtils.processStructuredTextField(article, "headline"), "text");
+		Summary summary = escenicUtils.createSummary(escenicUtils.processStructuredTextField(article, "subHeadline"), "text");
 		entry.setTitle(title);
 		entry.setSummary(summary);
 		Payload payload = new Payload();
@@ -158,7 +158,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		List<Field> fields = new ArrayList<Field>();
 
 		OneArticleBean articleBean = (OneArticleBean) oneArticleBean;
-		fields.add(escenicUtils.createField("title", escenicUtils.escapeXml(escenicUtils.getStructuredText(articleBean.getHeadline())), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeXml(escenicUtils.processStructuredTextField(articleBean, "headline")), null, null));
 		fields.add(escenicUtils.createField("headlinePrefix", escenicUtils.getField(articleBean, "headlinePrefix"), null, null));
 		fields.add(escenicUtils.createField("articleFlagLabel", escenicUtils.getFieldValueFromPropertyBag(articleBean, "headlineLabel"), null, null));
 		fields.add(escenicUtils.createField("articleLayout", escenicUtils.getField(articleBean, "articleType").toLowerCase(), null, null));
