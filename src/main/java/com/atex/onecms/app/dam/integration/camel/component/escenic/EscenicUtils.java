@@ -261,48 +261,35 @@ public class EscenicUtils {
 
 	protected String processAndReplaceOvermatterAndNoteTags(String structuredText) {
 		structuredText = replaceLineSeparatorWithSpace(structuredText);
-
-		final String body = processPseriesTagsToHtml(structuredText, false, (e) -> {
-
-			//if it's a script tag (script tags with class x-atex-notes are only extracted here)
-			//then remove the non-breaking space if present in the parent <p> tag and remove the script tag.
-			if (StringUtils.equalsIgnoreCase(e.nodeName(), "script")) {
-				Element parent = e.parent();
-				e.remove();
-				if (parent != null) {
-					String replacedText = replaceNonBreakingSpaces(parent.text());
-					parent.text(replacedText);
-				}
-			} else if (StringUtils.equalsIgnoreCase(e.nodeName(), "span")) {
-				//only span tags with x-overmatter class are processed here.
-				//we're extracting the text data and replacing the whole tag with its content
-				String newHtml = e.text();
-				final Element ne = Jsoup.parseBodyFragment(newHtml).body();
-				e.replaceWith(ne);
-			}
-		});
-		return body;
+		return processPseriesTagsToHtml(structuredText, false);
 	}
 
-	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html, final Consumer<Element> c) {
+	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html) {
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(Strings.nullToEmpty(html));
 
-			//extract overmatter span tags
+			//process overmatter span tags
 			for (final Element element : doc.select("span.x-atex-overmatter")) {
-				c.accept(element);
+				String newHtml = element.text();
+				final Element ne = Jsoup.parseBodyFragment(newHtml).body();
+				element.replaceWith(ne);
 			}
 
-			//extract script (atex notes)
+			//proces script tags (atex notes)
 			for (final Element element : doc.select("script")) {
 				if (element.hasAttr("type") && StringUtils.equalsIgnoreCase(element.attr("type"), "text/atex-note")) {
-					c.accept(element);
+					Element parent = element.parent();
+					element.remove();
+					if (parent != null) {
+						String replacedText = replaceNonBreakingSpaces(parent.text());
+						parent.text(replacedText);
+					}
 				}
 			}
 			return doc;
 	}
 
-	protected String processPseriesTagsToHtml(final String html, final boolean disablePrettyPrint, final Consumer<Element> c) {
-		final org.jsoup.nodes.Document doc = extractOvermatterAndNotesTags(html, c);
+	protected String processPseriesTagsToHtml(final String html, final boolean disablePrettyPrint) {
+		final org.jsoup.nodes.Document doc = extractOvermatterAndNotesTags(html);
 
 		if (disablePrettyPrint) {
 			doc.outputSettings().escapeMode(Entities.EscapeMode.base);
@@ -1222,5 +1209,9 @@ public class EscenicUtils {
 			return entry.getContent().getPayload().getField();
 		}
 		return null;
+	}
+
+	public String processStructuredTextField(OneArticleBean article, String fieldName) {
+		return processAndReplaceOvermatterAndNoteTags(getStructuredText(article, fieldName));
 	}
 }
