@@ -269,8 +269,8 @@ public class EscenicUtils {
 
 			//process overmatter span tags
 			for (final Element element : doc.select("span.x-atex-overmatter")) {
-				String newHtml = element.text();
-				final Element ne = Jsoup.parseBodyFragment(newHtml).body();
+				String text = element.text();
+				final Element ne = new Element(org.jsoup.parser.Tag.valueOf("p"), text);
 				element.replaceWith(ne);
 			}
 
