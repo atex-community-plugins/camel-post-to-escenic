@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -65,6 +66,7 @@ import com.atex.onecms.content.repository.StorageException;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.plugins.structured.text.StructuredText;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Strings;
 import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.lang.StringUtils;
@@ -88,6 +90,7 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Entities;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -256,16 +259,74 @@ public class EscenicUtils {
 		return "<![CDATA[" + text + "]]>";
 	}
 
+	protected String processAndReplaceOvermatterAndNoteTags(String structuredText) {
+		structuredText = replaceLineSeparatorWithSpace(structuredText);
+
+		final String body = processPseriesTagsToHtml(structuredText, false, (e) -> {
+
+			//if it's a script tag (script tags with class x-atex-notes are only extracted here)
+			//then remove the non-breaking space if present in the parent <p> tag and remove the script tag.
+			if (StringUtils.equalsIgnoreCase(e.nodeName(), "script")) {
+				Element parent = e.parent();
+				e.remove();
+				if (parent != null) {
+					String replacedText = replaceNonBreakingSpaces(parent.text());
+					parent.text(replacedText);
+				}
+			} else if (StringUtils.equalsIgnoreCase(e.nodeName(), "span")) {
+				//only span tags with x-overmatter class are processed here.
+				//we're extracting the text data and replacing the whole tag with its content
+				String newHtml = e.text();
+				final Element ne = Jsoup.parseBodyFragment(newHtml).body();
+				e.replaceWith(ne);
+			}
+		});
+		return body;
+	}
+
+	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html, final Consumer<Element> c) {
+			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(Strings.nullToEmpty(html));
+
+			//extract overmatter span tags
+			for (final Element element : doc.select("span.x-atex-overmatter")) {
+				c.accept(element);
+			}
+
+			//extract script (atex notes)
+			for (final Element element : doc.select("script")) {
+				if (element.hasAttr("type") && StringUtils.equalsIgnoreCase(element.attr("type"), "text/atex-note")) {
+					c.accept(element);
+				}
+			}
+			return doc;
+	}
+
+	protected String processPseriesTagsToHtml(final String html, final boolean disablePrettyPrint, final Consumer<Element> c) {
+		final org.jsoup.nodes.Document doc = extractOvermatterAndNotesTags(html, c);
+
+		if (disablePrettyPrint) {
+			doc.outputSettings().escapeMode(Entities.EscapeMode.base);
+			doc.outputSettings().prettyPrint(false);
+		} else {
+			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+		}
+
+		return doc.body().html();
+	}
+
 	protected String convertStructuredTextToEscenic(String structuredText, List<EscenicContent> escenicContentList) {
 		if (LOGGER.isLoggable(Level.FINEST)) {
 			LOGGER.finest("Body before replacing embeds: " + structuredText);
 		}
 
 		structuredText = wrapWithDiv(structuredText);
+		structuredText = processAndReplaceOvermatterAndNoteTags(structuredText);
+
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
 		} else {
 			//still ensure it's parsed
+
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
 //			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
@@ -296,13 +357,19 @@ public class EscenicUtils {
 
 	}
 
+	protected String replaceLineSeparatorWithSpace(String text) {
+		if (StringUtils.isNotBlank(text)) {
+			text = text.replaceAll("\u2028", " ");
+			return text.replaceAll("&#8232", " ");
+		}
+		return text;
+	}
+
 	//remove html tags and replace non breaking spaces
 	protected String replaceNonBreakingSpaces(String text) {
 		if (StringUtils.isNotBlank(text)) {
-			text = text.replaceAll("/\\\\u009/g", "");
-			text = text.replaceAll("\t", "");
-
-			return text.replaceAll("&nbsp;", " ");
+			text = text.replaceAll("\u00a0", "");
+			return text.replaceAll("&nbsp;", "");
 		}
 		return text;
 
@@ -836,7 +903,7 @@ public class EscenicUtils {
 				for (Element element : document.children()) {
 					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
 						if (StringUtils.isNotBlank(element.text())) {
-							return element.text();
+							return processAndReplaceOvermatterAndNoteTags(element.text());
 						}
 					}
 
