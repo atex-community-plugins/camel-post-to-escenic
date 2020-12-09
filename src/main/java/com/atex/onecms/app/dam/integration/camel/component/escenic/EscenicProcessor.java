@@ -1,7 +1,11 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.ContentLockedException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.util.DamUtils;
 import com.atex.onecms.content.*;
+import com.atex.onecms.ws.activity.ActivityException;
+import com.atex.onecms.ws.service.AuthenticationUtil;
 import com.polopoly.application.Application;
 import com.polopoly.application.ApplicationInitEvent;
 import com.polopoly.application.ApplicationOnAfterInitEvent;
@@ -10,17 +14,27 @@ import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.CmClient;
 import com.polopoly.cm.client.HttpFileServiceClient;
 import com.polopoly.cm.policy.PolicyCMServer;
+import com.polopoly.user.server.Caller;
 import com.polopoly.util.StringUtil;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+
 import javax.ws.rs.core.Response;
 
 import javax.servlet.ServletContext;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,16 +55,52 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 	protected static final String UNPUBLISH_ACTION = "unpublish-from-escenic";
 
 	private static final Logger LOGGER = Logger.getLogger(EscenicProcessor.class.getName());
-
 	private HttpFileServiceClient httpFileServiceClient;
 	private String imageServiceUrl;
 	private static final String IMAGE_SERVICE_URL_FALLBACK = "http://localhost:8080";
+
+	private boolean tryToLockContent(ContentId contentId) throws EscenicException {
+		LOGGER.fine("Generating request to check lock info for content: " + IdUtil.toIdString(contentId));
+		String token = "{ \"token\": \"" + AuthenticationUtil.getAuthToken(EscenicContentProcessor.getInstance().getCurrentCaller()) + "\"}";
+		StringEntity entity = new StringEntity(token, StandardCharsets.UTF_8);
+		entity.setContentType(ContentType.APPLICATION_JSON.getMimeType());
+		String location =  DamUtils.getRemoteApiUrl() + "escenic/api/checkAndLockContent?contentIdString=" + IdUtil.toIdString(contentId);
+		HttpPost request = new HttpPost(location);
+		request.setEntity(entity);
+		try (final CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);) {
+			if (result != null) {
+				return result.getStatusLine().getStatusCode() == HttpStatus.SC_OK;
+			}
+		} catch (IOException e) {
+			throw new EscenicException("An error occurred while attempting to lock content: " + IdUtil.toIdString(contentId));
+		}
+
+		return false;
+	}
+
+	private void unlockContent(ContentId contentId) throws EscenicException {
+		LOGGER.info("Releasing lock for content: " + IdUtil.toIdString(contentId));
+		Caller caller = EscenicContentProcessor.getInstance().getCurrentCaller();
+		String url = DamUtils.getDamUrl() + "content/unlock/"+ IdUtil.toIdString(contentId) +"/" + caller.getUserId().getPrincipalIdString() + "/atex.act";
+		String token = "{\"token\": \"" + AuthenticationUtil.getAuthToken(EscenicContentProcessor.getInstance().getCurrentCaller()) + "\"}";
+		HttpPost request = new HttpPost(url);
+		StringEntity entity = new StringEntity(token, StandardCharsets.UTF_8);
+		entity.setContentType(ContentType.APPLICATION_JSON.getMimeType());
+		request.setEntity(entity);
+		try (final CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);) {
+
+		} catch (IOException e) {
+			throw new EscenicException("An error occurred while attempting to unlock content: " + IdUtil.toIdString(contentId));
+		}
+	}
 
 	@Override
 	public void process(final Exchange exchange) throws Exception {
 		LOGGER.finest("EscenicProcessor - start work");
 		Response finalResponse = null;
 		init();
+		ContentId contentId = null;
+		boolean locked = false;
 		try {
 			if (cmClient == null || contentManager == null) {
 				LOGGER.severe("Unable to proceed - cmClient or contentManager was null, stopping the route");
@@ -66,29 +116,45 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 			String action = null;
 			Object actionHeader = message.getHeader("action");
-			if (actionHeader instanceof String) {
+			if (actionHeader != null && actionHeader instanceof String) {
 				action = (String) actionHeader;
+			}
+
+			Object callerHeader = message.getHeader("caller");
+			if (callerHeader != null && callerHeader instanceof Caller) {
+				EscenicContentProcessor.getInstance().latestCaller = (Caller) callerHeader;
+			}
+
+			if (EscenicContentProcessor.getInstance().getCurrentCaller() == null) {
+				throw new RuntimeException("The current caller is not present. Unable to proceed.");
 			}
 
 			String contentIdString;
 			if (message.getBody() instanceof String) {
 				contentIdString = getContentId(exchange);
-			} else if (exchange.getIn() != null && exchange.getIn().getHeader("contentId", ContentId.class) != null){
+			} else if (exchange.getIn() != null && exchange.getIn().getHeader("contentId", ContentId.class) != null) {
 				contentIdString = exchange.getIn().getHeader("contentId", ContentId.class).getKey();
 			} else {
 				LOGGER.severe("Unable to get the content id for message: " + message);
 				throw new RuntimeException("Unable to get the content id for message " + message);
 			}
 
+			contentId = IdUtil.fromString(contentIdString);
+
+			if (!tryToLockContent(contentId)) {
+				throw new ContentLockedException("Content with id: " + contentIdString + " is currently locked. Unable to publish to escenic.");
+			}
+
+			locked = true;
+
 			if (StringUtils.isNotBlank(action)) {
 				if (StringUtils.equalsIgnoreCase(action, PUBLISH_ACTION)) {
 					LOGGER.info("Publishing content: " + contentIdString);
-				} else if(StringUtils.equalsIgnoreCase(action, UNPUBLISH_ACTION)) {
+				} else if (StringUtils.equalsIgnoreCase(action, UNPUBLISH_ACTION)) {
 					LOGGER.info("Unpublishing content: " + contentIdString);
 				}
 			}
 
-			ContentId contentId = IdUtil.fromString(contentIdString);
 			ContentResult cr = escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
 			if (cr == null) {
@@ -98,7 +164,12 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			}
 
 			EscenicContentProcessor.getInstance().process(contentId, cr, action);
+			unlockContent(contentId);
 		} catch (Exception e){
+			if (!(e instanceof ContentLockedException) && locked) {
+				unlockContent(contentId);
+			}
+
 			LOGGER.log(Level.SEVERE, "Failed due to: " + e.getCause() + " - " + e.getMessage(), e);
 			throw e;
 		} finally {

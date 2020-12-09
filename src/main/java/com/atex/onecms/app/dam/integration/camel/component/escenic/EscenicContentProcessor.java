@@ -71,7 +71,7 @@ import org.json.JSONException;
 public class EscenicContentProcessor {
 
 	protected EscenicConfig escenicConfig;
-	private Caller latestCaller = null;
+	protected Caller latestCaller = null;
 	private static final Logger LOGGER = Logger.getLogger(EscenicContentProcessor.class.getName());
 	protected ContentManager contentManager;
 	protected static PolicyCMServer cmServer;
@@ -147,7 +147,7 @@ public class EscenicContentProcessor {
 
 			String sectionId = extractSectionId(contentResult);
 
-			//attempt to geenerate existing entry if location already exists
+			//attempt to generate existing entry if location already exists
 			Entry entry = null;
 			if (isUpdate) {
 				LOGGER.finest("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
