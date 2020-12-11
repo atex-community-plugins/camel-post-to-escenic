@@ -353,7 +353,7 @@ public class EscenicUtils {
 	//remove html tags and replace non breaking spaces
 	protected String replaceNonBreakingSpaces(String text) {
 		if (StringUtils.isNotBlank(text)) {
-			text = text.replaceAll("\u00a0", "");
+//			text = text.replaceAll("\u00a0", "");
 			return text.replaceAll("&nbsp;", "");
 		}
 		return text;
