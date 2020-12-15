@@ -162,8 +162,7 @@ public class EscenicUtils {
 		Header authHeader = generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
 		request.setHeader(authHeader);
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			String xml = null;
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
@@ -185,8 +184,7 @@ public class EscenicUtils {
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
 		HttpGet request = new HttpGet(location);
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			String xml = null;
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
@@ -265,26 +263,25 @@ public class EscenicUtils {
 	}
 
 	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html) {
-			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(Strings.nullToEmpty(html));
+			org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(Strings.nullToEmpty(html));
 
 			//process overmatter span tags
 			for (final Element element : doc.select("span.x-atex-overmatter")) {
 				String text = element.text();
-				final Element ne = Jsoup.parseBodyFragment(text).body();
-				element.replaceWith(ne);
+				Element parent = element.parent();
+				if (parent != null) {
+					parent.append(text);
+				}
+				element.remove();
 			}
 
 			//proces script tags (atex notes)
 			for (final Element element : doc.select("script")) {
 				if (element.hasAttr("type") && StringUtils.equalsIgnoreCase(element.attr("type"), "text/atex-note")) {
-					Element parent = element.parent();
 					element.remove();
-					if (parent != null) {
-						String replacedText = replaceNonBreakingSpaces(parent.text());
-						parent.text(replacedText);
-					}
 				}
 			}
+			
 			return doc;
 	}
 
@@ -412,8 +409,7 @@ public class EscenicUtils {
 			LOGGER.finest("Sending the following xml to escenic:\n" + xmlContent);
 		}
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
@@ -441,8 +437,7 @@ public class EscenicUtils {
 			LOGGER.finest("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
 		}
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
