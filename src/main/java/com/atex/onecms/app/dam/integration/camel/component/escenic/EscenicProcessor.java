@@ -79,7 +79,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 	}
 
 	private void unlockContent(ContentId contentId) throws EscenicException {
-		LOGGER.info("Releasing lock for content: " + IdUtil.toIdString(contentId));
+		LOGGER.finest("Releasing lock for content: " + IdUtil.toIdString(contentId));
 		Caller caller = EscenicContentProcessor.getInstance().getCurrentCaller();
 		String url = DamUtils.getDamUrl() + "content/unlock/"+ IdUtil.toIdString(contentId) +"/" + caller.getUserId().getPrincipalIdString() + "/atex.act";
 		String token = "{\"token\": \"" + AuthenticationUtil.getAuthToken(EscenicContentProcessor.getInstance().getCurrentCaller()) + "\"}";
@@ -116,12 +116,12 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 
 			String action = null;
 			Object actionHeader = message.getHeader("action");
-			if (actionHeader != null && actionHeader instanceof String) {
+			if (actionHeader instanceof String) {
 				action = (String) actionHeader;
 			}
 
 			Object callerHeader = message.getHeader("caller");
-			if (callerHeader != null && callerHeader instanceof Caller) {
+			if (callerHeader instanceof Caller) {
 				EscenicContentProcessor.getInstance().latestCaller = (Caller) callerHeader;
 			}
 
@@ -162,17 +162,16 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 				exchange.setProperty(Exchange.ROUTE_STOP, Boolean.TRUE);
 				return;
 			}
-
+			
 			EscenicContentProcessor.getInstance().process(contentId, cr, action);
-			unlockContent(contentId);
 		} catch (Exception e){
-			if (!(e instanceof ContentLockedException) && locked) {
-				unlockContent(contentId);
-			}
-
 			LOGGER.log(Level.SEVERE, "Failed due to: " + e.getCause() + " - " + e.getMessage(), e);
 			throw e;
 		} finally {
+			//only unlock content if it was locked by the escenic plugin
+			if (locked) {
+				unlockContent(contentId);
+			}
 			LOGGER.finest("Escenic processor - end work");
 		}
 
