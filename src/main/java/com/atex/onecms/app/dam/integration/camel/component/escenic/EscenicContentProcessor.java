@@ -7,10 +7,12 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
@@ -30,6 +32,8 @@ import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.app.dam.workflow.WFContentStatusAspectBean;
 import com.atex.onecms.app.dam.workflow.WFStatusBean;
 import com.atex.onecms.app.dam.workflow.WebContentStatusAspectBean;
+
+import com.atex.onecms.content.AliasesAspectBean;
 import com.atex.onecms.content.Content;
 import com.atex.onecms.content.ContentId;
 import com.atex.onecms.content.ContentManager;
@@ -38,11 +42,13 @@ import com.atex.onecms.content.ContentVersionId;
 import com.atex.onecms.content.ContentWrite;
 import com.atex.onecms.content.ContentWriteBuilder;
 import com.atex.onecms.content.IdUtil;
+import com.atex.onecms.content.InsertionInfoAspectBean;
+import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.SubjectUtil;
 import com.atex.onecms.content.aspects.Aspect;
-import com.atex.onecms.content.metadata.MetadataInfo;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -50,22 +56,25 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.PolicyCMServer;
-import com.polopoly.metadata.Dimension;
-import com.polopoly.metadata.Entity;
-import com.polopoly.metadata.Metadata;
+
 import com.polopoly.user.server.Caller;
 import com.polopoly.user.server.UserId;
+
 import org.apache.commons.lang.StringUtils;
+
 import org.apache.http.Header;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
+
 import org.json.JSONException;
 
 public class EscenicContentProcessor {
@@ -88,7 +97,6 @@ public class EscenicContentProcessor {
 	private static LoadingCache<String, Optional<JsonObject>> cachedSectionsJsonObject = CacheBuilder.newBuilder()
 		.maximumSize(1)
 		.expireAfterWrite(15, TimeUnit.MINUTES)
-//		.recordStats()
 		.build(new CacheLoader<String, Optional<JsonObject>>() {
 			@Override
 			public Optional<JsonObject> load(String s) throws IOException {
@@ -183,7 +191,7 @@ public class EscenicContentProcessor {
 				response = escenicUtils.sendNewContentToEscenic(result, sectionId);
 			}
 
-			evaluateResponse(contentId, existingEscenicLocation, escenicUtils.extractIdFromLocation(existingEscenicLocation),true, response, utils, contentResult, action);
+			evaluateResponse(contentId, existingEscenicLocation, escenicUtils.extractIdFromLocation(existingEscenicLocation), true, response, utils, contentResult, action);
 
 		} else if (contentBean instanceof DamCollectionAspectBean) {
 			LOGGER.finest("Processing gallery to escenic, onecms id: " + IdUtil.toIdString(contentId));
@@ -196,6 +204,10 @@ public class EscenicContentProcessor {
 	}
 
 	private static Optional<JsonObject> loadSectionListFromEscenic(String key) {
+		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl())) {
+			throw new RuntimeException("Section list url not specified in the configuration. Unable to proceed");
+		}
+
 		String resJson = null;
 		try {
 			resJson = EscenicContentProcessor.getInstance().escenicUtils.retrieveSectionList(EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl()).trim();
@@ -212,23 +224,36 @@ public class EscenicContentProcessor {
 		return Optional.ofNullable(jsonObject);
 
 	}
+
+	private Optional<String> getExternalId(final ContentManager contentManager,
+										   final Subject subject,
+										   final ContentId id) {
+		return Stream
+			.of(contentManager.resolve(id, subject))
+			.map(vid -> contentManager.get(vid, null, subject))
+			.filter(Objects::nonNull)
+			.filter(cr -> cr.getStatus().isSuccess())
+			.map(ContentResult::getContent)
+			.filter(Objects::nonNull)
+			.map(c -> (AliasesAspectBean) c.getAspectData(AliasesAspectBean.ASPECT_NAME))
+			.filter(Objects::nonNull)
+			.map(AliasesAspectBean::getAliases)
+			.filter(Objects::nonNull)
+			.map(a -> a.get("externalId"))
+			.filter(Objects::nonNull)
+			.findFirst();
+	}
+
 	private String extractSectionId(ContentResult cr) throws FailedToRetrieveEscenicContentException, JSONException {
-		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getWebSectionDimension())) {
-			throw new RuntimeException("Web section dimension not specified in the configuration. Unable to proceed");
-		}
 		String sectionId = null;
 		if (cr != null && cr.getStatus().isSuccess()) {
-			MetadataInfo metadataInfo = (MetadataInfo) cr.getContent().getAspectData(MetadataInfo.ASPECT_NAME);
-			if (metadataInfo != null) {
-				Metadata metadata = metadataInfo.getMetadata();
-				if (metadata != null) {
-					Dimension dim = metadata.getDimensionById(escenicConfig.getWebSectionDimension());
-					if (dim != null) {
-						List<Entity> entites =  dim.getEntities();
-						if (entites != null && !entites.isEmpty()) {
-							 sectionId = extractEntity(entites.get(0));
-						}
-					}
+			InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) cr.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
+			if (insertionInfoAspectBean != null) {
+				ContentId securityParentId = insertionInfoAspectBean.getSecurityParentId();
+				if (securityParentId != null) {
+					Subject subject = SubjectUtil.fromCaller(EscenicContentProcessor.getInstance().getCurrentCaller());
+					Optional<String> optionalString = getExternalId(contentManager, subject, securityParentId);
+					sectionId = optionalString.get();
 				} else {
 					throw new RuntimeException("Failed to extract section id due to failure reading metadata");
 				}
@@ -252,9 +277,7 @@ public class EscenicContentProcessor {
 					if (obj != null) {
 						JsonObject json = obj.getAsJsonObject();
 						if (json != null) {
-
 							if (json.get("name") != null) {
-
 								String name = json.get("name").getAsString();
 								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
 									if (json.get("value") != null) {
@@ -262,12 +285,11 @@ public class EscenicContentProcessor {
 										if (!StringUtils.equalsIgnoreCase(value, "null")) {
 											return value;
 										} else {
-											throw new RuntimeException("ID value for websection: " + sectionId + " evaluated to null");
+											throw new RuntimeException("ID value for web section: " + sectionId + " evaluated to null");
 										}
 									} else {
 										throw new RuntimeException("Unable to resolve the ID for web section: " + sectionId);
 									}
-
 								}
 							}
 						}
@@ -275,24 +297,7 @@ public class EscenicContentProcessor {
 				}
 			}
 		}
-
 		throw new RuntimeException("Unable to resolve the ID for web section");
-
-	}
-
-	private String extractEntity(Entity entity) {
-		if (entity != null) {
-
-			if (entity.getEntities() != null && entity.getEntities().size() == 0) {
-				return entity.getId();
-			} else if (entity.getEntities() != null) {
-				return extractEntity(entity.getEntities().get(0));
-			} else {
-				throw new RuntimeException("Failed to get entities: ");
-			}
-		} else {
-			throw new RuntimeException("Unable to extract section id from content");
-		}
 	}
 
 	protected EngagementDesc evaluateResponse(ContentId contentId, String existingEscenicLocation, String existingEscenicId,
