@@ -65,6 +65,7 @@ import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.policy.PolicyCMServer;
 
+import com.polopoly.siteengine.structure.SitePolicy;
 import com.polopoly.user.server.Caller;
 import com.polopoly.user.server.UserId;
 
@@ -225,79 +226,27 @@ public class EscenicContentProcessor {
 
 	}
 
-	private Optional<String> getExternalId(final ContentManager contentManager,
-										   final Subject subject,
-										   final ContentId id) {
-		return Stream
-			.of(contentManager.resolve(id, subject))
-			.map(vid -> contentManager.get(vid, null, subject))
-			.filter(Objects::nonNull)
-			.filter(cr -> cr.getStatus().isSuccess())
-			.map(ContentResult::getContent)
-			.filter(Objects::nonNull)
-			.map(c -> (AliasesAspectBean) c.getAspectData(AliasesAspectBean.ASPECT_NAME))
-			.filter(Objects::nonNull)
-			.map(AliasesAspectBean::getAliases)
-			.filter(Objects::nonNull)
-			.map(a -> a.get("externalId"))
-			.filter(Objects::nonNull)
-			.findFirst();
-	}
-
-	private String extractSectionId(ContentResult cr) throws FailedToRetrieveEscenicContentException, JSONException {
-		String sectionId = null;
+	private String extractSectionId(ContentResult cr) {
 		if (cr != null && cr.getStatus().isSuccess()) {
 			InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) cr.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
 			if (insertionInfoAspectBean != null) {
 				ContentId securityParentId = insertionInfoAspectBean.getSecurityParentId();
 				if (securityParentId != null) {
-					Subject subject = SubjectUtil.fromCaller(EscenicContentProcessor.getInstance().getCurrentCaller());
-					Optional<String> optionalString = getExternalId(contentManager, subject, securityParentId);
-					sectionId = optionalString.get();
-				} else {
-					throw new RuntimeException("Failed to extract section id due to failure reading metadata");
-				}
-			}
-		}
-
-		JsonObject jsonObject = null;
-		try {
-			jsonObject = cachedSectionsJsonObject.get("sectionMapping").get();
-		} catch (ExecutionException e) {
-			throw new RuntimeException("Failed to retrieve section mapping from cache: " + e);
-		}
-
-		if (jsonObject != null) {
-
-			JsonArray sections = jsonObject.getAsJsonArray("sections");
-			if (sections != null) {
-				Iterator<JsonElement> iterator = sections.iterator();
-				while(iterator.hasNext()) {
-					JsonElement obj = iterator.next();
-					if (obj != null) {
-						JsonObject json = obj.getAsJsonObject();
-						if (json != null) {
-							if (json.get("name") != null) {
-								String name = json.get("name").getAsString();
-								if (StringUtils.equalsIgnoreCase(name, sectionId)) {
-									if (json.get("value") != null) {
-										String value = json.get("value").getAsString();
-										if (!StringUtils.equalsIgnoreCase(value, "null")) {
-											return value;
-										} else {
-											throw new RuntimeException("ID value for web section: " + sectionId + " evaluated to null");
-										}
-									} else {
-										throw new RuntimeException("Unable to resolve the ID for web section: " + sectionId);
-									}
-								}
-							}
+					try {
+						SitePolicy sitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(securityParentId));
+						if (sitePolicy != null) {
+							return sitePolicy.getComponent("escenicId", "value");
 						}
+					} catch (CMException e) {
+						throw new RuntimeException("Problem occurred when retrieving escenic section id for site id : " + securityParentId);
 					}
+				} else {
+					throw new RuntimeException("Site id was not found. Unable to proceed.");
 				}
 			}
 		}
-		throw new RuntimeException("Unable to resolve the ID for web section");
+
+		throw new RuntimeException("Unable to resolve the escenic section id for content: " + cr.getContentId());
 	}
 
 	protected EngagementDesc evaluateResponse(ContentId contentId, String existingEscenicLocation, String existingEscenicId,
