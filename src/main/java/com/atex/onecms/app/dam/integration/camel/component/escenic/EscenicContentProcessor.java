@@ -22,6 +22,7 @@ import com.atex.onecms.app.dam.engagement.EngagementElement;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicResponseException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToProcessSectionIdException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
 import com.atex.onecms.app.dam.standard.aspects.DamCollectionAspectBean;
@@ -94,17 +95,6 @@ public class EscenicContentProcessor {
 	public static final String STATUS_ATTR_EMBARGO = "attr.embargo";
 	public static final String STATUS_ATTR_ONLINE = "attr.online";
 	public static final String STATUS_ATTR_UNPUBLISHED = "attr.removed";
-
-	private static LoadingCache<String, Optional<JsonObject>> cachedSectionsJsonObject = CacheBuilder.newBuilder()
-		.maximumSize(1)
-		.expireAfterWrite(15, TimeUnit.MINUTES)
-		.build(new CacheLoader<String, Optional<JsonObject>>() {
-			@Override
-			public Optional<JsonObject> load(String s) throws IOException {
-				return loadSectionListFromEscenic(s);
-			}
-	});
-
 
 	private static EscenicContentProcessor instance;
 
@@ -204,29 +194,7 @@ public class EscenicContentProcessor {
 		}
 	}
 
-	private static Optional<JsonObject> loadSectionListFromEscenic(String key) {
-		if (StringUtils.isBlank(EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl())) {
-			throw new RuntimeException("Section list url not specified in the configuration. Unable to proceed");
-		}
-
-		String resJson = null;
-		try {
-			resJson = EscenicContentProcessor.getInstance().escenicUtils.retrieveSectionList(EscenicContentProcessor.getInstance().escenicConfig.getSectionListUrl()).trim();
-		} catch (Exception e) {
-			LOGGER.severe("exception occurred while reading section list from content:" + e);
-		}
-
-		if (StringUtils.isBlank(resJson)) {
-			throw new RuntimeException("Failed to retrieve section mapping list");
-		}
-
-		JsonObject jsonObject = new Gson().fromJson(resJson, JsonObject.class);
-
-		return Optional.ofNullable(jsonObject);
-
-	}
-
-	private String extractSectionId(ContentResult cr) {
+	private String extractSectionId(ContentResult cr) throws FailedToProcessSectionIdException {
 		if (cr != null && cr.getStatus().isSuccess()) {
 			InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) cr.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
 			if (insertionInfoAspectBean != null) {
@@ -238,15 +206,15 @@ public class EscenicContentProcessor {
 							return sitePolicy.getComponent("escenicId", "value");
 						}
 					} catch (CMException e) {
-						throw new RuntimeException("Problem occurred when retrieving escenic section id for site id : " + securityParentId);
+						throw new FailedToProcessSectionIdException("Problem occurred when retrieving escenic section id for site id : " + securityParentId);
 					}
 				} else {
-					throw new RuntimeException("Site id was not found. Unable to proceed.");
+					throw new FailedToProcessSectionIdException("Site id was not found. Unable to proceed.");
 				}
 			}
 		}
 
-		throw new RuntimeException("Unable to resolve the escenic section id for content: " + cr.getContentId());
+		throw new FailedToProcessSectionIdException("Unable to resolve the escenic section id for content: " + cr.getContentId());
 	}
 
 	protected EngagementDesc evaluateResponse(ContentId contentId, String existingEscenicLocation, String existingEscenicId,
