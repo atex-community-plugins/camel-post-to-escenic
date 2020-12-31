@@ -61,6 +61,7 @@ import com.atex.onecms.content.ContentId;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.IdUtil;
 import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.repository.StorageException;
 import com.atex.onecms.ws.service.ErrorResponseException;
@@ -1209,4 +1210,50 @@ public class EscenicUtils {
 	public String processStructuredTextField(OneArticleBean article, String fieldName) {
 		return processAndReplaceOvermatterAndNoteTags(getStructuredText(article, fieldName));
 	}
+
+	public boolean imagesPresent(OneArticleBean article) {
+		return article != null && (article.getImages() != null && !article.getImages().isEmpty());
+	}
+
+	public boolean resourcesPresent(OneArticleBean article) {
+		return article != null && (article.getResources() != null && !article.getResources().isEmpty());
+	}
+
+	public boolean isTopElement(ContentId contentId, List<EscenicContent> escenicContentList ) {
+		/**
+		 * This is to prevent pushing the image twice if it's both in body & set as top element as well
+		 */
+		if (contentId != null) {
+			if (escenicContentList != null) {
+				for (EscenicContent escenicContent : escenicContentList) {
+					if (escenicContent != null && escenicContent.getOnecmsContentId() != null) {
+						if (StringUtils.equalsIgnoreCase(IdUtil.toIdString(escenicContent.getOnecmsContentId()), IdUtil.toIdString(contentId))) {
+							//they're the same, therefore update the escenic content with the flag and return and avoid processing
+							if (escenicContent instanceof EscenicImage) {
+								EscenicImage img = (EscenicImage) escenicContent;
+
+								if (img != null) {
+									img.setInlineElement(true);
+									return true;
+								}
+							}
+
+							if (escenicContent instanceof EscenicGallery) {
+								EscenicGallery gallery = (EscenicGallery) escenicContent;
+
+								if (gallery != null) {
+									gallery.setInlineElement(true);
+									return true;
+								}
+							}
+
+							//video to be added?!
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 }

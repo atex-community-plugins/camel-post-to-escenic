@@ -158,19 +158,19 @@ public class EscenicContentProcessor {
 				}
 			}
 
-			List<EscenicContent> escenicContentList = null;
+			List<EscenicContent> escenicContentList = EscenicArticleProcessor.getInstance().processTopElements(contentResult, contentManager, utils, cmServer, article, entry, sectionId, action);
+
+			List<EscenicContent> inlineContentList;
 			try {
-				escenicContentList = EscenicSmartEmbedProcessor.getInstance().process(contentResult, utils, article, entry, sectionId, action);
+				inlineContentList = EscenicSmartEmbedProcessor.getInstance().process(contentResult, utils, article, escenicContentList, sectionId, action);
 			} catch (IOException | URISyntaxException e) {
-				throw new RuntimeException("An error occurred while processing embedded content: " + e);
+				throw new EscenicException("An error occurred while processing embedded content: " + e);
 			}
 
-			LOGGER.finest("Extracted a total of: " + escenicContentList.size() + " inline body embeds to be processed to escenic");
+			LOGGER.finest("Extracted a total of: " + inlineContentList.size() + " inline body embeds to be processed to escenic");
 
-			EscenicContent topElement = EscenicArticleProcessor.getInstance().processTopElement(contentResult, contentManager, utils, cmServer, article, entry, escenicContentList, sectionId, action);
-
-			if (topElement != null) {
-				escenicContentList.add(topElement);
+			if (inlineContentList != null && !inlineContentList.isEmpty()) {
+				escenicContentList.addAll(inlineContentList);
 			}
 
 			article = updateArticleBodyWithOnecmsIds(escenicContentList, contentResult);
