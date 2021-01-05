@@ -1,5 +1,38 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic.ws;
 
+import static com.polopoly.service.cm.api.StatusCode.SERVER_ERROR;
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.servlet.ServletContext;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.HeaderParam;
+
+
+
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicConfig;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicContentToExternalReferenceContentConverter;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicUtils;
@@ -7,14 +40,25 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.config.Esceni
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
 import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
+import com.atex.onecms.content.SubjectUtil;
+import com.atex.onecms.ws.activity.ActivityException;
+import com.atex.onecms.ws.activity.ActivityInfo;
+import com.atex.onecms.ws.activity.ActivityServiceSecured;
+import com.atex.onecms.ws.activity.ApplicationInfo;
+import com.atex.onecms.ws.service.AuthenticationUtil;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.onecms.ws.service.WebServiceUtil;
 import com.google.gson.Gson;
+import com.google.inject.Inject;
 import com.polopoly.application.Application;
 import com.polopoly.application.IllegalApplicationStateException;
 import com.polopoly.application.servlet.ApplicationServletUtil;
@@ -28,7 +72,6 @@ import com.sun.jersey.spi.resource.PerRequest;
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
-import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -43,24 +86,6 @@ import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import org.springframework.util.StreamUtils;
 
-import java.io.*;
-import java.net.URISyntaxException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.servlet.ServletContext;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Unmarshaller;
-import java.net.URI;
-import java.util.Optional;
-
-import static com.polopoly.service.cm.api.StatusCode.SERVER_ERROR;
-import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 
 @Path("/api")
 @PerRequest
@@ -70,6 +95,7 @@ public class EscenicResource {
 	private static final int TIMEOUT = 60 * 1000;
 	private static final String DEFAULT_PAGE_NUMBER = "1";
 	public static final String DEFAULT_QUERY = "(*)";
+	public static final String ATEX_ACT_APP = "atex.act";
 
 	private static final RequestConfig config = RequestConfig.custom()
 		.setConnectTimeout(TIMEOUT)
@@ -89,7 +115,48 @@ public class EscenicResource {
 	@Context
 	private WebServiceUtil webServiceUtil;
 
+	@Inject
+	ActivityServiceSecured activityServiceSecured;
+
 	private Caller latestCaller = null;
+
+	@HeaderParam("X-Auth-Token") String authToken;
+
+	@Context
+	private javax.ws.rs.core.HttpHeaders httpHeaders;
+
+	class TokenData {
+		public String token;
+	}
+
+	@POST
+	@Path("checkAndLockContent")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response checkAndLockContent(InputStream dataStream, @QueryParam("contentIdString") String contentIdString) throws ErrorResponseException {
+
+		try {
+			Gson gson = new Gson();
+			BufferedReader reader = new BufferedReader(new InputStreamReader(dataStream));
+			EscenicResource.TokenData data = gson.fromJson(reader, EscenicResource.TokenData.class);
+			authToken = data.token;
+
+			Caller caller = AuthenticationUtil.getLoggedInCaller(getCmClient().getUserServer(), authToken, httpHeaders.getMediaType(), false);
+			ActivityInfo activityInfo = activityServiceSecured.get(SubjectUtil.fromCaller(caller), contentIdString);
+			LOGGER.finest("activityInfo: " + activityInfo);
+
+			if (activityInfo != null && (activityInfo.isEmpty() || !isLockedByAct(activityInfo)) ) {
+				ApplicationInfo appInfo = new ApplicationInfo();
+				appInfo.setActivity("edit");
+				appInfo.setTimestamp(System.currentTimeMillis());
+				activityServiceSecured.write(SubjectUtil.fromCaller(caller), contentIdString, caller.getUserId().getPrincipalIdString(), "atex.act", appInfo);
+				return Response.ok().build();
+			}
+		} catch (ActivityException | IllegalApplicationStateException e) {
+			return Response.serverError().entity(e.getMessage()).build();
+		}
+
+		return Response.serverError().entity("Content locked - Please ensure that content is not locked before publishing.").build();
+	}
 
 	@GET
 	@Path("search")
@@ -229,7 +296,7 @@ public class EscenicResource {
 				SC_INTERNAL_SERVER_ERROR, e);
 		}
 
-		return Response.serverError().build();
+		return Response.serverError().entity("No preview link available - is it a draft content? (No Alternate link in content atom entry)").build();
 	}
 
 	@GET
@@ -306,8 +373,7 @@ public class EscenicResource {
 
 			InputStream is = null;
 
-			try {
-				CloseableHttpResponse result = httpClient.execute(request);
+			try (CloseableHttpResponse result = httpClient.execute(request);) {
 
 				if (result != null && result.getStatusLine() != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
 
@@ -344,11 +410,14 @@ public class EscenicResource {
 		return Response.serverError().build();
 	}
 
+	private CmClient getCmClient() throws IllegalApplicationStateException {
+		return getApplication().getPreferredApplicationComponent(CmClient.class);
+	}
+
 	public EscenicConfig getEscenicConfig() {
 		EscenicConfig config;
 		try {
-			final CmClient cmClient = getApplication().getPreferredApplicationComponent(CmClient.class);
-			final PolicyCMServer cmServer = cmClient.getPolicyCMServer();
+			final PolicyCMServer cmServer = getCmClient().getPolicyCMServer();
 			EscenicConfigPolicy policy = (EscenicConfigPolicy) cmServer.getPolicy(new ExternalContentId(EscenicConfigPolicy.CONFIG_EXTERNAL_ID));
 			if (policy == null) throw new CMException("No escenic configuration found with id: " + EscenicConfigPolicy.CONFIG_EXTERNAL_ID);
 			config = policy.getConfig();
@@ -376,6 +445,24 @@ public class EscenicResource {
 		return Optional
 			.ofNullable(latestCaller)
 			.orElse(new Caller(new UserId("98")));
+	}
+
+	private boolean isLockedByAct(ActivityInfo activityInfo) {
+		AtomicBoolean found = new AtomicBoolean(false);
+		if (activityInfo != null && !activityInfo.getUsers().isEmpty()) {
+			activityInfo.getUsers().forEach((userKey, userActivities) -> {
+				if (userActivities != null) {
+					userActivities.getApplications().forEach((applicationKey, applicationInfo) -> {
+						if (applicationKey != null) {
+							if (StringUtils.equalsIgnoreCase(applicationKey, ATEX_ACT_APP)) {
+								found.set(true);
+							}
+						}
+					});
+				}
+			});
+		}
+		return found.get();
 	}
 
 }

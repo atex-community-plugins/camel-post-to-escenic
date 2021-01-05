@@ -1,15 +1,45 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicResponseException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
 import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
 import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.app.dam.util.ImageUtils;
-import com.atex.onecms.content.*;
 import com.atex.onecms.content.Content;
+import com.atex.onecms.content.ContentFileInfo;
+import com.atex.onecms.content.ContentId;
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.FilesAspectBean;
+import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.files.FileService;
-import com.atex.onecms.image.*;
+import com.atex.onecms.image.CropInfo;
+import com.atex.onecms.image.ImageEditInfoAspectBean;
+import com.atex.onecms.image.ImageInfoAspectBean;
+import com.atex.onecms.image.Rectangle;
 import com.atex.onecms.ws.image.ImageServiceConfiguration;
 import com.atex.onecms.ws.image.ImageServiceConfigurationProvider;
 import com.atex.onecms.ws.image.ImageServiceUrlBuilder;
@@ -27,14 +57,6 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
-
-import java.io.*;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.*;
-import java.util.List;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
@@ -167,7 +189,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 
 				ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) imgCr.getContent().getAspectData(ImageEditInfoAspectBean.ASPECT_NAME);
-				String binaryLocation = sendBinaryImage(imgCr, oneImageBean, cmServer, binaryUrl, escenicConfig, existingImgEntry, imageEditInfoAspectBean);
+				String binaryLocation = sendBinaryImage(imgCr, binaryUrl, existingImgEntry, imageEditInfoAspectBean);
 				Entry atomEntry = constructAtomEntryForBinaryImage(oneImageBean, existingImgEntry, imgCr.getContent(), binaryLocation, escenicConfig, imageEditInfoAspectBean);
 				if (existingImgEntry != null) {
 					atomEntry = processExistingImage(existingImgEntry, atomEntry);
@@ -192,39 +214,34 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	private Entry processExistingImage(Entry existingEntry, Entry entry) {
 		if (existingEntry != null && entry != null) {
-			List<Field> existingFields = existingEntry.getContent().getPayload().getField();
-			List<Field> newFields = entry.getContent().getPayload().getField();
-			for (Field field : existingFields) {
-				for (Field newField : newFields) {
-					//modify all fields but binary location.
-					if (StringUtils.isNotBlank(field.getName()) && !StringUtils.equalsIgnoreCase(field.getName(), "binary")) {
-						if (StringUtils.equalsIgnoreCase(field.getName(), newField.getName())) {
-							field.setValue(newField.getValue());
-						}
-					}
-				}
-			}
+			List<Field> existingFields = escenicUtils.getFieldsForEntry(existingEntry);
+			List<Field> newFields = escenicUtils.getFieldsForEntry(entry);
+
+			existingFields = escenicUtils.generateUpdatedListOfFields(existingFields, newFields);
+			existingEntry.getContent().getPayload().setField(existingFields);
 
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
 			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 			//we're resetting the summary to ensure invalid xhtml chars are being escaped
 			escenicUtils.cleanUpSummary(existingEntry);
+			existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
 			return existingEntry;
 		}
 		return entry;
 	}
 
-	private void updateMaxImageSize() {
+	private int getMaxImageWidth() {
 		String w = escenicConfig.getMaxImgWidth();
 
 		if (StringUtils.isNotBlank(w)) {
 			try {
-				MAX_IMAGE_WIDTH = Integer.parseInt(w);
+				return Integer.parseInt(w);
 			} catch (NumberFormatException e) {
 				LOGGER.warning("Invalid value. Unable to extract max image width from config.");
 			}
 		}
+		return MAX_IMAGE_WIDTH;
 
 	}
 
@@ -236,9 +253,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 													ContentFileInfo contentFileInfo,
 													Subject subject) throws CMException, IOException {
 
-		updateMaxImageSize();
+		int maxImageWidth = getMaxImageWidth();
 
-		if (imageInfoAspectBean == null || imageInfoAspectBean.getWidth() <= MAX_IMAGE_WIDTH) {
+		if (imageInfoAspectBean == null || imageInfoAspectBean.getWidth() <= maxImageWidth) {
 			return new BufferedInputStream(fileService.getFile(contentFileInfo.getFileUri(), subject));
 		}
 		int rotation = 0;
@@ -260,7 +277,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 		// By default the image service will also sample the quality to .75 so, bump it to 1.0 so we do not double sample
 		final ImageServiceUrlBuilder urlBuilder = new ImageServiceUrlBuilder(cr, imageServiceConfiguration.getSecret())
-			.width(MAX_IMAGE_WIDTH)
+			.width(maxImageWidth)
 			.quality(IMAGE_QUALITY);
 
 		try {
@@ -351,7 +368,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return cleanPath;
 	}
 
-	private String sendBinaryImage(ContentResult imgCr, OneImageBean oneImageBean, PolicyCMServer cmServer, String binaryUrl, EscenicConfig escenicConfig,
+	private String sendBinaryImage(ContentResult imgCr, String binaryUrl,
 								   Entry existingImgEntry, ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
 		String location = null;
 		if (imgCr != null) {
@@ -376,19 +393,23 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 										if (contentFileInfo != null) {
 											if (StringUtils.isNotBlank(contentFileInfo.getFilePath()) && StringUtils.equalsIgnoreCase(contentFileInfo.getFilePath(), imgFilePath)) {
 
-												InputStream data = getResizedImageStream(
-													escenicUtils.getHttpClient(),
-													imgCr,
-													imageInfoAspectBean,
-													imageEditInfoAspectBean,
-													fileService,
-													contentFileInfo,
-													Subject.NOBODY_CALLER);
-
+												try (InputStream data = getResizedImageStream(
+														escenicUtils.getHttpClient(),
+														imgCr,
+														imageInfoAspectBean,
+														imageEditInfoAspectBean,
+														fileService,
+														contentFileInfo,
+														Subject.NOBODY_CALLER)) {
 													//only send it if there's no existing entry.
+													// TODO , this is a bit confusing as we open the input stream and do some processing
+													// but not sure if we need to
 													if (existingImgEntry == null) {
 														location = sendImage(data, contentFileInfo.getFilePath(), binaryUrl);
 													}
+
+												}
+
 											}
 										}
 									}
@@ -461,7 +482,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			fields.add(escenicUtils.createField("autocrop", crops.toString(), null, null));
 		}
 
-		fields.add(escenicUtils.createField("title", oneImageBean.getName(), null, null));
+		fields.add(escenicUtils.createField("title", escenicUtils.escapeXml(oneImageBean.getName()), null, null));
 		fields.add(escenicUtils.createField("description", oneImageBean.getDescription(), null, null));
 		fields.add(escenicUtils.createField("photographer", oneImageBean.getCredit(), null, null));
 		fields.add(escenicUtils.createField("caption", oneImageBean.getCaption(), null, null));
@@ -489,7 +510,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			}
 
 			link.setType("image/" + imgExt);
-			link.setTitle(oneImageBean.getName());
+			link.setTitle(escenicUtils.escapeXml(oneImageBean.getName()));
 			fields.add(escenicUtils.createField("binary", link, null, null));
 		}
 		return fields;
@@ -500,7 +521,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		escenicImage.setEscenicLocation(escenicLocation);
 		escenicImage.setOnecmsContentId(contentId);
 		escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-		escenicImage.setTitle(oneImageBean.getName());
+		escenicImage.setTitle(escenicUtils.escapeXml(oneImageBean.getName()));
 		escenicImage.setCaption(oneImageBean.getCaption());
 		List<Link> links = escenicUtils.generateLinks(escenicImage);
 		escenicImage.setLinks(links);

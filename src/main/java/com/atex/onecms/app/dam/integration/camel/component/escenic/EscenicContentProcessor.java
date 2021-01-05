@@ -1,22 +1,48 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+
+import javax.annotation.Nullable;
+
 import com.atex.onecms.app.dam.engagement.EngagementAspect;
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.*;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicResponseException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
-import com.atex.onecms.app.dam.standard.aspects.*;
+import com.atex.onecms.app.dam.standard.aspects.DamCollectionAspectBean;
+import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.standard.aspects.OneContentBean;
 import com.atex.onecms.app.dam.types.TimeState;
 import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.app.dam.workflow.WFContentStatusAspectBean;
 import com.atex.onecms.app.dam.workflow.WFStatusBean;
 import com.atex.onecms.app.dam.workflow.WebContentStatusAspectBean;
-import com.atex.onecms.content.*;
+import com.atex.onecms.content.Content;
+import com.atex.onecms.content.ContentId;
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.ContentWrite;
+import com.atex.onecms.content.ContentWriteBuilder;
+import com.atex.onecms.content.IdUtil;
+import com.atex.onecms.content.SubjectUtil;
 import com.atex.onecms.content.aspects.Aspect;
 import com.atex.onecms.content.metadata.MetadataInfo;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
-import com.atex.workflow.WebStatusUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -42,19 +68,10 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONException;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
-
 public class EscenicContentProcessor {
 
 	protected EscenicConfig escenicConfig;
-	private Caller latestCaller = null;
+	protected Caller latestCaller = null;
 	private static final Logger LOGGER = Logger.getLogger(EscenicContentProcessor.class.getName());
 	protected ContentManager contentManager;
 	protected static PolicyCMServer cmServer;
@@ -126,11 +143,11 @@ public class EscenicContentProcessor {
 		if (contentBean instanceof OneArticleBean) {
 			LOGGER.finest("Processing article to escenic, onecms id: " + IdUtil.toIdString(contentId));
 
-			CustomArticleBean article = (CustomArticleBean) contentBean;
+			OneArticleBean article = (OneArticleBean) contentBean;
 
 			String sectionId = extractSectionId(contentResult);
 
-			//attempt to geenerate existing entry if location already exists
+			//attempt to generate existing entry if location already exists
 			Entry entry = null;
 			if (isUpdate) {
 				LOGGER.finest("Article exists in escenic, attempting to retrieve existing entry from location: " + existingEscenicLocation);
@@ -341,11 +358,11 @@ public class EscenicContentProcessor {
 	}
 
 
-	private CustomArticleBean updateArticleBodyWithOnecmsIds(List<EscenicContent> escenicContentList, ContentResult<Object> cr) {
+	private OneArticleBean updateArticleBodyWithOnecmsIds(List<EscenicContent> escenicContentList, ContentResult<Object> cr) {
 		if (cr.getStatus().isSuccess()) {
 			Content<Object> articleBeanContent = cr.getContent();
 			if (articleBeanContent != null) {
-				CustomArticleBean article = (CustomArticleBean) articleBeanContent.getContentData();
+				OneArticleBean article = (OneArticleBean) articleBeanContent.getContentData();
 				if (article != null) {
 					if (article.getBody() != null) {
 						article.getBody().setText(EscenicSocialEmbedProcessor.getInstance().addOnecmsIdToSocialEmbeds(article.getBody().getText(), escenicContentList));
@@ -509,10 +526,10 @@ public class EscenicContentProcessor {
 			.orElse(new Caller(new UserId("98")));
 	}
 
-	public EmbargoState getEmbargoState(CustomArticleBean content) {
+	public EmbargoState getEmbargoState(OneArticleBean content) {
 
 		EmbargoState state = EmbargoState.NOEMBARGO;
-		final CustomArticleBean contentState = content;
+		final OneArticleBean contentState = content;
 		if (contentState != null) {
 			final TimeState timeState = contentState.getTimeState();
 			if (timeState != null) {
@@ -551,7 +568,7 @@ public class EscenicContentProcessor {
 				wfStatus.getStatus().getAttributes().add(STATUS_ATTR_UNPUBLISHED);
 			} else {
 				if (bean instanceof OneArticleBean) {
-					CustomArticleBean articleBean = (CustomArticleBean) bean;
+					OneArticleBean articleBean = (OneArticleBean) bean;
 					EmbargoState embargoState = getEmbargoState(articleBean);
 
 					switch (embargoState) {

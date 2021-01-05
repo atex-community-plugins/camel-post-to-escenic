@@ -8,6 +8,7 @@ public class EscenicImage extends EscenicContent {
 
 	public static final String IMAGE_MODEL_CONTENT_TYPE = "/content-type/picture";
 	public static final String IMAGE_MODEL_CONTENT_SUMMARY = "/content-summary/picture";
+	public static final String THUMBNAIL_MODEL_TYPE = "/image/png";
 	protected static final String IMAGE_TYPE = "image";
 
 	private String title;

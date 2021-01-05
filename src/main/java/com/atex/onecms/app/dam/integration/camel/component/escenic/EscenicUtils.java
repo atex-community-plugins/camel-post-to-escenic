@@ -1,5 +1,37 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 import com.atex.gong.utils.WsErrorUtil;
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
@@ -7,19 +39,38 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.Esc
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
-import com.atex.onecms.app.dam.integration.camel.component.escenic.model.*;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Control;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Group;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Publication;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Query;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Summary;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Value;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.ws.EscenicResource;
-import com.atex.onecms.app.dam.standard.aspects.*;
-import com.atex.onecms.content.*;
+import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
+import com.atex.onecms.app.dam.standard.aspects.OneContentBean;
+import com.atex.onecms.content.ConfigurationDataBean;
+import com.atex.onecms.content.ContentId;
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.repository.StorageException;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.plugins.structured.text.StructuredText;
 import com.google.common.base.CharMatcher;
-
+import com.google.common.base.Strings;
 import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -39,31 +90,12 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Entities;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-
-import javax.xml.bind.*;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * @author jakub
@@ -130,8 +162,7 @@ public class EscenicUtils {
 		Header authHeader = generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
 		request.setHeader(authHeader);
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			String xml = null;
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
@@ -153,8 +184,7 @@ public class EscenicUtils {
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
 		HttpGet request = new HttpGet(location);
 		request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			String xml = null;
 			if (result.getEntity() != null) {
 				xml = EntityUtils.toString(result.getEntity());
@@ -206,7 +236,7 @@ public class EscenicUtils {
 		if (value != null) {
 			if (value instanceof String) {
 				if (!isValueEscaped(fieldName)) {
-					value = escapeHtml(value.toString());
+					value = escapeXml(value.toString());
 				}
 			}
 			return new Value(Arrays.asList(new Object[]{value}));
@@ -227,16 +257,60 @@ public class EscenicUtils {
 		return "<![CDATA[" + text + "]]>";
 	}
 
+	protected String processAndReplaceOvermatterAndNoteTags(String structuredText) {
+		structuredText = replaceLineSeparatorWithSpace(structuredText);
+		return processPseriesTagsToHtml(structuredText, false);
+	}
+
+	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html) {
+			org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(Strings.nullToEmpty(html));
+
+			//process overmatter span tags
+			for (final Element element : doc.select("span.x-atex-overmatter")) {
+				String text = element.text();
+				Element parent = element.parent();
+				if (parent != null) {
+					parent.append(text);
+				}
+				element.remove();
+			}
+
+			//proces script tags (atex notes)
+			for (final Element element : doc.select("script")) {
+				if (element.hasAttr("type") && StringUtils.equalsIgnoreCase(element.attr("type"), "text/atex-note")) {
+					element.remove();
+				}
+			}
+			
+			return doc;
+	}
+
+	protected String processPseriesTagsToHtml(final String html, final boolean disablePrettyPrint) {
+		final org.jsoup.nodes.Document doc = extractOvermatterAndNotesTags(html);
+
+		if (disablePrettyPrint) {
+			doc.outputSettings().escapeMode(Entities.EscapeMode.base);
+			doc.outputSettings().prettyPrint(false);
+		} else {
+			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+		}
+
+		return doc.body().html();
+	}
+
 	protected String convertStructuredTextToEscenic(String structuredText, List<EscenicContent> escenicContentList) {
 		if (LOGGER.isLoggable(Level.FINEST)) {
 			LOGGER.finest("Body before replacing embeds: " + structuredText);
 		}
 
 		structuredText = wrapWithDiv(structuredText);
+		structuredText = processAndReplaceOvermatterAndNoteTags(structuredText);
+
 		if (escenicContentList != null && !escenicContentList.isEmpty()) {
 			structuredText = EscenicSocialEmbedProcessor.getInstance().replaceEmbeds(structuredText, escenicContentList);
 		} else {
 			//still ensure it's parsed
+
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
 //			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
@@ -267,13 +341,19 @@ public class EscenicUtils {
 
 	}
 
+	protected String replaceLineSeparatorWithSpace(String text) {
+		if (StringUtils.isNotBlank(text)) {
+			text = text.replaceAll("\u2028", " ");
+			return text.replaceAll("&#8232", " ");
+		}
+		return text;
+	}
+
 	//remove html tags and replace non breaking spaces
 	protected String replaceNonBreakingSpaces(String text) {
 		if (StringUtils.isNotBlank(text)) {
-			text = text.replaceAll("/\\\\u009/g", "");
-			text = text.replaceAll("\t", "");
-
-			return text.replaceAll("&nbsp;", " ");
+			text = text.replaceAll("\u00a0", "");
+			return text.replaceAll("&nbsp;", "");
 		}
 		return text;
 
@@ -329,8 +409,7 @@ public class EscenicUtils {
 			LOGGER.finest("Sending the following xml to escenic:\n" + xmlContent);
 		}
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
@@ -358,8 +437,7 @@ public class EscenicUtils {
 			LOGGER.finest("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
 		}
 
-		try {
-			CloseableHttpResponse result = httpClient.execute(request);
+		try (CloseableHttpResponse result = httpClient.execute(request);){
 			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
 			return result;
 		} catch (Exception e) {
@@ -431,7 +509,7 @@ public class EscenicUtils {
 
 			if (escenicContent instanceof EscenicImage) {
 				EscenicImage escenicImage = (EscenicImage) escenicContent;
-				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), "image/png",
+				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
 					null, null, null, null, null, null);
 
 				if (link != null) {
@@ -440,8 +518,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
-					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
+					fields.add(createField("title", escapeXml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -453,8 +531,8 @@ public class EscenicUtils {
 
 				if (escenicImage.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicImage.getTitle()), null, null));
-					fields.add(createField("caption", escapeHtml(escenicImage.getCaption()), null, null));
+					fields.add(createField("title", escapeXml(escenicImage.getTitle()), null, null));
+					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
 						escenicImage.getTitle(), PUBLISHED_STATE);
@@ -467,7 +545,7 @@ public class EscenicUtils {
 
 			} else if (escenicContent instanceof EscenicGallery) {
 				EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
-				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), "image/png",
+				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
 					null, null, null, null, null, null);
 
 				if (link != null) {
@@ -476,7 +554,7 @@ public class EscenicUtils {
 
 				if (escenicGallery.isTopElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
+					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -487,7 +565,7 @@ public class EscenicUtils {
 
 				if (escenicContent.isInlineElement()) {
 					List<Field> fields = new ArrayList<>();
-					fields.add(createField("title", escapeHtml(escenicGallery.getTitle()), null, null));
+					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
 						escenicGallery.getTitle(), PUBLISHED_STATE);
@@ -500,7 +578,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicEmbed) {
 				EscenicEmbed escenicEmbed = (EscenicEmbed) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escapeHtml(escenicEmbed.getTitle()), null, null));
+				fields.add(createField("title", escapeXml(escenicEmbed.getTitle()), null, null));
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY,
 					escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
 					escenicEmbed.getTitle(), PUBLISHED_STATE);
@@ -511,9 +589,9 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicContentReference) {
 				EscenicContentReference escenicContentReference = (EscenicContentReference) escenicContent;
 				List<Field> fields = new ArrayList<>();
-				fields.add(createField("title", escapeHtml(escenicContentReference.getTitle()), null, null));
+				fields.add(createField("title", escapeXml(escenicContentReference.getTitle()), null, null));
 
-				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, "/content-summary/" + escenicContentReference.getType(),
+				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null,  EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType(),
 					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
 					escenicContentReference.getTitle(), PUBLISHED_STATE);
 
@@ -545,11 +623,11 @@ public class EscenicUtils {
 		link.setState(state);
 		link.setPayload(payload);
 		link.setIdentifier(identifier);
-		link.setTitle(escapeHtml(title));
+		link.setTitle(escapeXml(title));
 		return link;
 	}
 
-	protected String escapeHtml(String text) {
+	protected String escapeXml(String text) {
 		return StringEscapeUtils.escapeXml10(removeHtmlTags(text));
 	}
 
@@ -632,7 +710,7 @@ public class EscenicUtils {
 				}
 
 				if (!found && shouldLinkRelationBeAdded(existinglink)) {
-					existinglink.setTitle(escapeHtml(existinglink.getTitle()));
+					existinglink.setTitle(escapeXml(existinglink.getTitle()));
 					links.add(existinglink);
 				}
 			}
@@ -641,7 +719,7 @@ public class EscenicUtils {
 
 		if (existingLinks != null) {
 			for (Link exLink : existingLinks) {
-				exLink.setTitle(escapeHtml(exLink.getTitle()));
+				exLink.setTitle(escapeXml(exLink.getTitle()));
 			}
 		}
 
@@ -807,7 +885,7 @@ public class EscenicUtils {
 				for (Element element : document.children()) {
 					if (StringUtils.equalsIgnoreCase(element.nodeName(), "p")) {
 						if (StringUtils.isNotBlank(element.text())) {
-							return element.text();
+							return processAndReplaceOvermatterAndNoteTags(element.text());
 						}
 					}
 
@@ -877,14 +955,14 @@ public class EscenicUtils {
 	public Title createTitle(String value, String type) {
 		Title title = new Title();
 		title.setType(type);
-		title.setTitle(escapeHtml(value));
+		title.setTitle(escapeXml(value));
 		return title;
 	}
 
 	public Summary createSummary(String value, String type) {
 		Summary summary = new Summary();
 		summary.setType(type);
-		summary.setSummary(escapeHtml(value));
+		summary.setSummary(escapeXml(value));
 		return summary;
 	}
 
@@ -966,12 +1044,12 @@ public class EscenicUtils {
 
 	public Publication cleanUpPublication(Publication publication) {
 		if (publication != null) {
-			publication.setTitle(escapeHtml(publication.getTitle()));
+			publication.setTitle(escapeXml(publication.getTitle()));
 			List<Link> links = publication.getLink();
 
 			if (links != null) {
 				for (Link link : links) {
-					link.setTitle(escapeHtml(link.getTitle()));
+					link.setTitle(escapeXml(link.getTitle()));
 				}
 			}
 		}
@@ -998,20 +1076,137 @@ public class EscenicUtils {
 			return false;
 	}
 
-	public String getFieldValueFromPropertyBag(CustomArticleBean article, String field) {
-		Map<String, Map<String, String>> propertyBag = article.getPropertyBag();
-		if (propertyBag.size() > 0) {
-			for (String groupKey : propertyBag.keySet()) {
-				if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
-					Map<String, String> groupMap = propertyBag.get(groupKey);
-					for (String key : groupMap.keySet()) {
-						if (StringUtils.equalsIgnoreCase(key, field)) {
-							return groupMap.get(key);
+	public String getFieldValueFromPropertyBag(OneArticleBean article, String field) {
+		try {
+			Map<String, Map<String, String>> propertyBag = (Map<String, Map<String, String>>) PropertyUtils.getProperty(article, "propertyBag");
+			if (propertyBag != null && propertyBag.size() > 0) {
+				for (String groupKey : propertyBag.keySet()) {
+					if (StringUtils.equalsIgnoreCase(groupKey, "custom")) {
+						Map<String, String> groupMap = propertyBag.get(groupKey);
+						for (String key : groupMap.keySet()) {
+							if (StringUtils.equalsIgnoreCase(key, field)) {
+								return groupMap.get(key);
+							}
+						}
+					}
+				}
+			} else {
+				LOGGER.log(Level.SEVERE, "Failed to retrieve value from property bag - property bag doesn't exist or is empty.");
+			}
+
+		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve value from property bag", e);
+		}
+
+		return null;
+	}
+
+	public String getStructuredText(OneArticleBean article, String field) {
+		try {
+			Object property = PropertyUtils.getProperty(article, field);
+			if (property instanceof StructuredText) {
+				return getStructuredText((StructuredText) property);
+			}
+		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve structured text field", e);
+		}
+		return null;
+	}
+
+	public String getField(OneArticleBean article, String field) {
+		try {
+			Object property = PropertyUtils.getProperty(article, field);
+			if (property instanceof String) {
+				return (String) property;
+			}
+		} catch (Exception e) {
+			LOGGER.log(Level.SEVERE, "Failed to retrieve value for field: " + field, e);
+		}
+		return null;
+	}
+
+	public boolean isBinaryField(Field field) {
+		return StringUtils.isNotBlank(field.getName()) && StringUtils.equalsIgnoreCase(field.getName(), "binary");
+	}
+
+	public String getFieldRealValue(Field field) {
+		if (field != null) {
+			if (field.getValue() != null && field.getValue().getValue() != null) {
+				for (Object o : field.getValue().getValue()) {
+					if (o != null) {
+						if (o instanceof String) {
+							return o.toString();
 						}
 					}
 				}
 			}
 		}
-		return "";
+		return null;
+	}
+
+	public List generateUpdatedListOfFields(List<Field> existingFields, List<Field> newFields) {
+		if (newFields != null && !newFields.isEmpty()) {
+			if (existingFields != null && !existingFields.isEmpty()) {
+				existingFields.forEach(field -> {
+					AtomicBoolean managedByEscenic = new AtomicBoolean(true);
+					newFields.forEach(newField -> {
+						//just for the image type..
+						if (!isBinaryField(field)) {
+							if (field != null && field.fieldNameEqualsIgnoreCase(newField)) {
+								field.setValue(newField.getValue());
+								managedByEscenic.set(false);
+							}
+						}
+					});
+
+					if (!isBinaryField(field) && managedByEscenic.get()) {
+						if (field != null && field.getValue() != null && field.getValue().getValue() != null && !field.getValue().getValue().isEmpty()) {
+							String value = getFieldRealValue(field);
+							Field escapedField = createField(field.getName(), escapeXml(value == null ? "" : value), null, null);
+							field.setValue(escapedField.getValue());
+						}
+					}
+				});
+			} else {
+				LOGGER.log(Level.WARNING, "Unable to generate update list of fields - existing fields list was either null or empty.");
+			}
+		} else {
+			LOGGER.log(Level.WARNING, "Unable to generate update list of fields - new fields list was either null or empty.");
+		}
+
+		return existingFields;
+	}
+
+	public boolean checkIfEntryHasContentPayloadAndListOfFields(Entry entry) {
+		if (entry != null) {
+			if (entry.getContent() != null) {
+				if (entry.getContent().getPayload() != null) {
+					if (entry.getContent().getPayload().getField() != null) {
+						return true;
+					} else {
+						LOGGER.log(Level.WARNING, "Validating Entry failed - list of fields not found.");
+					}
+				} else {
+					LOGGER.log(Level.WARNING, "Validating Entry failed - Payload not found.");
+				}
+			} else {
+				LOGGER.log(Level.WARNING, "Validating Entry failed - Content not found.");
+			}
+		} else {
+			LOGGER.log(Level.WARNING, "Validating Entry failed - Entry was null.");
+		}
+
+		return false;
+	}
+
+	public List getFieldsForEntry(Entry entry) {
+		if (checkIfEntryHasContentPayloadAndListOfFields(entry)) {
+			return entry.getContent().getPayload().getField();
+		}
+		return null;
+	}
+
+	public String processStructuredTextField(OneArticleBean article, String fieldName) {
+		return processAndReplaceOvermatterAndNoteTags(getStructuredText(article, fieldName));
 	}
 }

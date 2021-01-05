@@ -122,7 +122,7 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 		escenicGallery.setEscenicLocation(escenicLocation);
 		escenicGallery.setOnecmsContentId(contentId);
 		escenicGallery.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
-		escenicGallery.setTitle(escenicUtils.escapeHtml(collectionAspectBean.getHeadline()));
+		escenicGallery.setTitle(escenicUtils.escapeXml(collectionAspectBean.getHeadline()));
 		List<Link> links = escenicUtils.generateLinks(escenicGallery);
 		escenicGallery.setLinks(links);
 	}
@@ -150,24 +150,18 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 
 	private Entry processExistingGallery(Entry existingEntry, Entry entry) {
 		if (existingEntry != null && entry != null) {
-			List<Field> existingFields = existingEntry.getContent().getPayload().getField();
-			List<Field> newFields = entry.getContent().getPayload().getField();
-			for (Field field : existingFields) {
-				for (Field newField : newFields) {
-					//modify all fields apart binary location.
-					if (StringUtils.isNotBlank(field.getName()) && !StringUtils.equalsIgnoreCase(field.getName(), "binary")) {
-						if (StringUtils.equalsIgnoreCase(field.getName(), newField.getName())) {
-							field.setValue(newField.getValue());
-						}
-					}
-				}
-			}
+			List<Field> existingFields = escenicUtils.getFieldsForEntry(existingEntry);
+			List<Field> newFields = escenicUtils.getFieldsForEntry(entry);
+
+			existingFields = escenicUtils.generateUpdatedListOfFields(existingFields, newFields);
+			existingEntry.getContent().getPayload().setField(existingFields);
 
 			existingEntry.setControl(entry.getControl());
 			existingEntry.setTitle(entry.getTitle());
 			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
 			//we're resetting the summary to ensure invalid xhtml chars are being escaped
 			escenicUtils.cleanUpSummary(existingEntry);
+			existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
 			return existingEntry;
 		}
 		return entry;

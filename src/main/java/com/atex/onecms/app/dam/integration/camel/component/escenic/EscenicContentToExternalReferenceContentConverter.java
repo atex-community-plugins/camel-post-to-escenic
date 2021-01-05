@@ -1,14 +1,19 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.util.List;
+
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
-import com.atex.onecms.content.*;
+
+import com.atex.onecms.content.ContentManager;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.ContentWrite;
+import com.atex.onecms.content.ContentWriteBuilder;
+import com.atex.onecms.content.SubjectUtil;
 import com.polopoly.user.server.Caller;
 import org.apache.commons.lang.StringUtils;
-
-import java.util.List;
 
 /**
  *
@@ -51,6 +56,7 @@ public class EscenicContentToExternalReferenceContentConverter {
 	}
 
 	private ContentResult createExternalReference(String type, String escenicId, String location, String thumbnailUrl, Entry entry) {
+
 		ExternalReferenceBean externalReferenceBean = new ExternalReferenceBean();
 		externalReferenceBean.setTitle(getFieldValue(entry.getContent().getPayload().getField(), "title"));
 		externalReferenceBean.setExternalReferenceContentType(type);
