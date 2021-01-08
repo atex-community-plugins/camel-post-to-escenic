@@ -187,7 +187,7 @@ public class EscenicUtils {
 		try (CloseableHttpResponse result = httpClient.execute(request);){
 			String xml = null;
 			if (result.getEntity() != null) {
-				xml = EntityUtils.toString(result.getEntity());
+				xml = EntityUtils.toString(result.getEntity(), StandardCharsets.UTF_8);
 			}
 
 			if (LOGGER.isLoggable(Level.FINEST)) {
