@@ -1,5 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.standard.aspects.*;
 import com.atex.onecms.content.*;
@@ -36,7 +37,7 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 			}
 		}
 
-		protected EscenicContentReference process(CustomEmbedParser.SmartEmbed embed) {
+		protected EscenicContentReference process(CustomEmbedParser.SmartEmbed embed) throws EscenicException {
 			ContentId contentId = null;
 			if (embed != null && embed.getContentId() != null) {
 				contentId = embed.getContentId();
@@ -54,7 +55,8 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 						try {
 							externalReferenceBean = (ExternalReferenceBean) escenicUtils.extractContentBean(externalReferenceCr);
 						} catch (Exception e) {
-							throw new RuntimeException("Failed to retrieve ExternalReferenceBean bean for : " + externalReferenceCr.getContentId());
+							LOGGER.severe("Failed to retrieve ExternalReferenceBean bean for : " + externalReferenceCr.getContentId());
+							throw new EscenicException("An embedded link to a related article is linking to a Desk article, please fix and retry publish");
 						}
 
 						if (externalReferenceBean != null) {
