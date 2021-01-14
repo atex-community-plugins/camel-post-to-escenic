@@ -18,6 +18,7 @@ public class Entry {
 	private Publication publication;
 	private Control control;
 	private String published;
+	private String updated;
 	private String expires;
 	private Summary summary;
 	private String available;
@@ -59,6 +60,15 @@ public class Entry {
 
 	public void setPublished(String published) {
 		this.published = published;
+	}
+
+	@XmlElement(name = "updated")
+	public String getUpdated() {
+		return updated;
+	}
+
+	public void setUpdated(String updated) {
+		this.updated = updated;
 	}
 
 	@XmlElement(name = "publication", namespace="http://xmlns.escenic.com/2010/atom-metadata")

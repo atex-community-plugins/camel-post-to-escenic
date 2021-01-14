@@ -148,6 +148,11 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		existingEntry.setTitle(entry.getTitle());
 		existingEntry.setAvailable(entry.getAvailable());
 		existingEntry.setExpires(entry.getExpires());
+		if (StringUtils.isNotBlank(entry.getPublished())) {
+			existingEntry.setUpdated(entry.getPublished());
+		} else {
+			existingEntry.setUpdated(existingEntry.getPublished());
+		}
 		escenicUtils.cleanUpSummary(existingEntry);
 		existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
 		return existingEntry;
