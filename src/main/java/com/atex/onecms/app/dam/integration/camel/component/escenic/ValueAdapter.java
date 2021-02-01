@@ -49,7 +49,7 @@ public class ValueAdapter implements DomHandler<String, StreamResult> {
 
 		public Source marshal(String n, ValidationEventHandler errorHandler) {
 			try {
-				//todo this needed?
+
 				if (n.startsWith("&lt;div")) {
 					String s = StringEscapeUtils.unescapeHtml(n);
 					StringReader xmlReader = new StringReader(s);
