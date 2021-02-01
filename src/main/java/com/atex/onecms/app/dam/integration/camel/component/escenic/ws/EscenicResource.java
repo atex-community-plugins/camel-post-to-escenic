@@ -24,8 +24,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.HeaderParam;
 
-
-
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -46,10 +44,13 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Feed;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.State;
 import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceBean;
+import com.atex.onecms.app.dam.standard.aspects.ExternalReferenceVideoBean;
+
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
 import com.atex.onecms.content.SubjectUtil;
+
 import com.atex.onecms.ws.activity.ActivityException;
 import com.atex.onecms.ws.activity.ActivityInfo;
 import com.atex.onecms.ws.activity.ActivityServiceSecured;
@@ -57,35 +58,40 @@ import com.atex.onecms.ws.activity.ApplicationInfo;
 import com.atex.onecms.ws.service.AuthenticationUtil;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.onecms.ws.service.WebServiceUtil;
+
 import com.google.gson.Gson;
 import com.google.inject.Inject;
+
 import com.polopoly.application.Application;
 import com.polopoly.application.IllegalApplicationStateException;
 import com.polopoly.application.servlet.ApplicationServletUtil;
+
 import com.polopoly.cm.ExternalContentId;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.CmClient;
 import com.polopoly.cm.policy.PolicyCMServer;
+
 import com.polopoly.user.server.Caller;
 import com.polopoly.user.server.UserId;
+
 import com.sun.jersey.spi.resource.PerRequest;
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
+
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import org.springframework.util.StreamUtils;
-
 
 @Path("/api")
 @PerRequest
@@ -168,7 +174,12 @@ public class EscenicResource {
 			LOGGER.finest("Inside cross provider escenic search");
 		}
 
-		EscenicUtils escenicUtils = getEscenicUtils();
+		EscenicUtils escenicUtils = null;
+		try {
+			escenicUtils = getEscenicUtils();
+		} catch (IllegalApplicationStateException e) {
+			e.printStackTrace();
+		}
 		try {
 			query = URIUtil.decode(query);
 		} catch (URIException e) {
@@ -262,7 +273,12 @@ public class EscenicResource {
 			LOGGER.finest("Opening preview for:\n" + escenicLocation);
 		}
 
-		EscenicUtils escenicUtils = getEscenicUtils();
+		EscenicUtils escenicUtils = null;
+		try {
+			escenicUtils = getEscenicUtils();
+		} catch (IllegalApplicationStateException e) {
+			e.printStackTrace();
+		}
 		String escenicId = escenicUtils.extractIdFromLocation(escenicLocation);
 		String xml = null;
 		String previewUrl = null;
@@ -302,11 +318,12 @@ public class EscenicResource {
 	@GET
 	@Path("getContent")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getContent(@QueryParam("escenicLocation") String escenicLocation, @QueryParam("contentType") String contentType) throws ErrorResponseException {
+	public Response getContent(@QueryParam("escenicLocation") String escenicLocation, @QueryParam("contentType") String contentType) throws ErrorResponseException, IllegalApplicationStateException {
 		if (LOGGER.isLoggable(Level.FINEST)) {
-			LOGGER.finest("Getting full version of content from escenic for: " + escenicLocation);
+			LOGGER.finest("Loading whole content from escenic for: " + escenicLocation);
 		}
 
+		Caller caller = AuthenticationUtil.getLoggedInCaller(getCmClient().getUserServer(), authToken, httpHeaders.getMediaType(), false);
 		EscenicUtils escenicUtils = getEscenicUtils();
 		String escenicId = escenicUtils.extractIdFromLocation(escenicLocation);
 		String xml = null;
@@ -333,20 +350,28 @@ public class EscenicResource {
 					}
 
 					if (validState && !isExpired) {
-						EscenicContentToExternalReferenceContentConverter escenicContentConverter = new EscenicContentToExternalReferenceContentConverter(getContentManager(), getCurrentCaller());
-						ContentResult cr = escenicContentConverter.process(entry, escenicId);
-						ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
-						if (externalReferenceBean != null) {
-							JSONObject json = new JSONObject();
-							json.put("_type", externalReferenceBean.getObjectType());
-							json.put("id", IdUtil.toIdString(cr.getContentId().getContentId()));
-							return Response.ok(json).build();
+						EscenicContentToExternalReferenceContentConverter escenicContentConverter =
+							new EscenicContentToExternalReferenceContentConverter(getContentManager());
+						try {
+							ContentResult cr = escenicContentConverter.process(escenicUtils, entry, escenicId, caller);
+							if (cr.getContent().getContentData() instanceof ExternalReferenceBean) {
+								ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) cr.getContent().getContentData();
+								return processAndReturn(externalReferenceBean, IdUtil.toIdString(cr.getContentId().getContentId()));
+							} else {
+								ExternalReferenceVideoBean externalReferenceVideoBean = (ExternalReferenceVideoBean) cr.getContent().getContentData();
+								return processAndReturn(externalReferenceVideoBean, IdUtil.toIdString(cr.getContentId().getContentId()));
+							}
+						} catch (EscenicException e) {
+							throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
+								e.getMessage(),
+								SERVER_ERROR,
+								SC_INTERNAL_SERVER_ERROR, e);
 						}
 					}
 				}
 			}
 
-		} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException | JSONException | NullPointerException e) {
+		} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException | JSONException | IOException e) {
 			throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
 				e.getMessage(),
 				SERVER_ERROR,
@@ -356,57 +381,58 @@ public class EscenicResource {
 		return Response.serverError().build();
 	}
 
+
+	private Response processAndReturn(ExternalReferenceBean externalReferenceBean, String contentIdString) throws JSONException {
+		if (externalReferenceBean != null) {
+			JSONObject json = new JSONObject();
+			json.put("id", contentIdString);
+			json.put("_type", externalReferenceBean.getObjectType());
+			return Response.ok(json).build();
+		}
+		return Response.serverError().build();
+	}
+
 	@GET
 	@Path("getThumbnail")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
-	public Response getThumbnail(@QueryParam("url") String url) throws ErrorResponseException, IOException, URISyntaxException {
-		EscenicUtils escenicUtils = getEscenicUtils();
-		if (url != null) {
+	public Response getThumbnail(@QueryParam("url") String url) throws ErrorResponseException, IOException {
+		EscenicUtils escenicUtils = null;
+		try {
+			escenicUtils = getEscenicUtils();
+		} catch (IllegalApplicationStateException e) {
+			throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
+				"Failed to retrieve escenicUtils - unable to proceed.",
+				SERVER_ERROR,
+				SC_INTERNAL_SERVER_ERROR);
+		}
 
-			url = URIUtil.encodeQuery(url);
-			if (LOGGER.isLoggable(Level.FINEST)) {
-				LOGGER.finest("Sending the following query to escenic:\n" + url);
-			}
+		try (CloseableHttpResponse result = escenicUtils.getImageThumbnailResponse(url)) {
 
-			HttpGet request = new HttpGet(url);
-			request.setHeader(escenicUtils.generateAuthenticationHeader(getEscenicConfig().getUsername(), getEscenicConfig().getPassword()));
+			if (result != null && result.getStatusLine() != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+				String mimeType = result.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
 
-			InputStream is = null;
+				//todo change this in the future to avoid loading the thumbnails into memory
+				final InputStreamEntity inputStreamEntity = escenicUtils.generateImageEntity(result.getEntity().getContent(), mimeType);
 
-			try (CloseableHttpResponse result = httpClient.execute(request);) {
-
-				if (result != null && result.getStatusLine() != null && result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-
-					String mimeType = result.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
-					//todo change this in the future to avoid loading the thumbnails into memory
-					final ContentType contentType = ContentType.create(
-						Optional.ofNullable(mimeType)
-							.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
-					final InputStreamEntity inputStreamEntity = new InputStreamEntity(result.getEntity().getContent(), contentType);
-					if (inputStreamEntity != null) {
-						is = inputStreamEntity.getContent();
-
+				if (inputStreamEntity != null) {
+					try (InputStream is = inputStreamEntity.getContent()) {
 						byte[] imageData = StreamUtils.copyToByteArray(is);
 						return Response.ok(new ByteArrayInputStream(imageData)).header(HttpHeaders.CONTENT_TYPE, mimeType).build();
-
+					} catch (Exception e ){
+						throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
+							"Failed to read image entity: " + e.getMessage(),
+							SERVER_ERROR,
+							SC_INTERNAL_SERVER_ERROR);
 					}
-				} else {
-					throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
-						"Failed to retrieve thumbnail: " + result.getStatusLine(),
-						SERVER_ERROR,
-						SC_INTERNAL_SERVER_ERROR);
 				}
-			} catch (Exception e) {
+			} else {
 				throw new ErrorResponseException(MediaType.APPLICATION_JSON_TYPE,
-				e.getMessage(),
-				SERVER_ERROR,
-				SC_INTERNAL_SERVER_ERROR, e);
-			} finally {
-				if (is != null) {
-					is.close();
-				}
+					"Failed to retrieve thumbnail: " + result.getStatusLine(),
+					SERVER_ERROR,
+					SC_INTERNAL_SERVER_ERROR);
 			}
 		}
+
 		return Response.serverError().build();
 	}
 
@@ -433,18 +459,12 @@ public class EscenicResource {
 		return ApplicationServletUtil.getApplication(servletContext);
 	}
 
-	private EscenicUtils getEscenicUtils() {
-		return new EscenicUtils(getEscenicConfig());
+	private EscenicUtils getEscenicUtils() throws ErrorResponseException, IllegalApplicationStateException {
+		return new EscenicUtils(getEscenicConfig(), getContentManager(), getCmClient().getPolicyCMServer());
 	}
 
 	private ContentManager getContentManager() throws ErrorResponseException {
 		return webServiceUtil.getContentManager();
-	}
-
-	protected Caller getCurrentCaller() {
-		return Optional
-			.ofNullable(latestCaller)
-			.orElse(new Caller(new UserId("98")));
 	}
 
 	private boolean isLockedByAct(ActivityInfo activityInfo) {
