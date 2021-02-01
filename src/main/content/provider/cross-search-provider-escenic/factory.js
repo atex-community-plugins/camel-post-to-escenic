@@ -427,10 +427,17 @@ atex.onecms.register('ng-factory', 'CrossSearchProviderEscenic', function () {
 
           return $http.get(escenicUrl).then(function (res) {
             if (res !== undefined) {
-              return [{
-                type: "atex.onecms.external.reference",
-                id: res.data.id
-              }];
+              if (entry.type !== "Video") {
+                return [{
+                  type: "atex.onecms.external.reference",
+                  id: res.data.id
+                }];
+              } else {
+                return [{
+                  type: "atex.onecms.external.video.reference",
+                  id: res.data.id
+                }];
+              }
             }
 
           }).then(function(result) {
