@@ -114,9 +114,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	}
 
 	protected EscenicImage processImage(ContentId contentId,
-                                        EscenicImage escenicImage,
-                                        Websection websection,
-                                        String action) throws EscenicException {
+										EscenicImage escenicImage,
+										Websection websection,
+										String action) throws EscenicException {
 
 		ContentResult imgCr =  escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
