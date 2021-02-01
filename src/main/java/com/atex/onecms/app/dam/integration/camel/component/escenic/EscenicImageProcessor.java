@@ -26,12 +26,11 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
 import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
-import com.atex.onecms.app.dam.util.DamEngagementUtils;
+
 import com.atex.onecms.app.dam.util.ImageUtils;
 import com.atex.onecms.content.Content;
 import com.atex.onecms.content.ContentFileInfo;
 import com.atex.onecms.content.ContentId;
-import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.FilesAspectBean;
 import com.atex.onecms.content.Subject;
@@ -47,7 +46,6 @@ import com.atex.plugins.baseline.util.MimeUtil;
 import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.HttpFileServiceClient;
-import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
@@ -116,9 +114,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	}
 
 	protected EscenicImage processImage(ContentId contentId,
-										EscenicImage escenicImage,
-										Websection websection,
-										String action) throws EscenicException {
+                                        EscenicImage escenicImage,
+                                        Websection websection,
+                                        String action) throws EscenicException {
 
 		ContentResult imgCr =  escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
