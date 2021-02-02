@@ -25,7 +25,6 @@ import com.atex.onecms.content.ContentWrite;
 import com.atex.onecms.content.ContentWriteBuilder;
 import com.atex.onecms.content.FilesAspectBean;
 import com.atex.onecms.content.SubjectUtil;
-import com.atex.onecms.content.files.FileInfo;
 
 import com.atex.onecms.image.ImageInfoAspectBean;
 import com.atex.onecms.ws.service.AuthenticationUtil;
@@ -177,8 +176,8 @@ public class EscenicContentToExternalReferenceContentConverter {
 		externalReferenceBean.setExternalReferenceId(escenicId);
 		externalReferenceBean.setLocation(location);
 		externalReferenceBean.setThumbnailUrl(thumbnailUrl);
-		try {
-			BeanUtils.setProperty(externalReferenceBean, "caption", getFieldValue(entry.getContent().getPayload().getField(), "title"));
+        try {
+            BeanUtils.setProperty(externalReferenceBean, "caption", getFieldValue(entry.getContent().getPayload().getField(), "title"));
 		} catch (IllegalAccessException | InvocationTargetException e) {
 			LOGGER.log(Level.FINEST, "failed to set caption", e);
 		}
