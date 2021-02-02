@@ -51,7 +51,7 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
                                        String embedUrl,
                                        EscenicEmbed escenicEmbed,
                                        Websection websection) {
-	    
+
 		escenicEmbed.setEscenicLocation(existingEscenicLocation);
 		escenicEmbed.setEscenicId(escenicId);
 		escenicEmbed.setTitle(embedBean.getName());

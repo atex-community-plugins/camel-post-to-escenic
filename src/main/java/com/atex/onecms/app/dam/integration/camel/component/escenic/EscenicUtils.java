@@ -207,10 +207,10 @@ public class EscenicUtils {
 		}
 	}
 
-	protected Field createField(String fieldName,
-								Object value,
-								List<Field> fields,
-								com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
+    protected Field createField(String fieldName,
+                                Object value,
+                                List<Field> fields,
+                                com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
 
 		return new Field(fieldName, createValue(fieldName, value), fields, list);
 	}
@@ -279,7 +279,6 @@ public class EscenicUtils {
 
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-//			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
 			structuredText = doc.body().html();
 		}
 
@@ -586,17 +585,17 @@ public class EscenicUtils {
 
 	}
 
-	protected Link createLink(List<Field> fields,
-							  String group,
-							  String thumbnail,
-							  String model,
-							  String href,
-							  String type,
-							  String rel,
-							  String identifier,
-							  String title,
-							  String state,
-							  Websection websection) {
+    protected Link createLink(List<Field> fields,
+                              String group,
+                              String thumbnail,
+                              String model,
+                              String href,
+                              String type,
+                              String rel,
+                              String identifier,
+                              String title,
+                              String state,
+                              Websection websection) {
 
 		Link link = new Link();
 		Payload payload = new Payload();
@@ -1265,9 +1264,6 @@ public class EscenicUtils {
 	}
 
 	protected DamEngagementUtils getEngagementUtils() {
-//		if (contentManager != null) {
-//			throw new EscenicException("Failed to initialise content manager - unable to create engagement utils.");
-//		}
 		if (engagementUtils == null) {
 			engagementUtils = new DamEngagementUtils(contentManager);
 		}

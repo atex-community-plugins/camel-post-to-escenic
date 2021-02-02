@@ -44,11 +44,11 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	protected String process(Entry existingEntry,
-							 OneArticleBean article,
-							 List<EscenicContent> escenicContentList,
-							 String action,
-							 Websection websection)	throws CallbackException {
+    protected String process(Entry existingEntry,
+                             OneArticleBean article,
+                             List<EscenicContent> escenicContentList,
+                             String action,
+                             Websection websection) throws CallbackException {
 
 		if (existingEntry != null) {
 			EscenicSocialEmbedProcessor.getInstance().updateIdsForEscenicContent(existingEntry, escenicContentList);
@@ -57,11 +57,11 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		return processArticle(article, existingEntry, escenicContentList, websection, action);
 	}
 
-	private String processArticle(OneArticleBean article,
-								  Entry existingEntry,
-								  List<EscenicContent> escenicContentList,
-								  Websection websection,
-								  String action) {
+    private String processArticle(OneArticleBean article,
+                                  Entry existingEntry,
+                                  List<EscenicContent> escenicContentList,
+                                  Websection websection,
+                                  String action) {
 
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(escenicUtils.processStructuredTextField(article, "headline"), "text");
@@ -226,12 +226,12 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							}
 						}
 
-						try (CloseableHttpResponse response =
-								 EscenicImageProcessor.getInstance().processImage(contentCr,
-																				  escenicImageEntry,
-																				  existingEscenicLocation,
-																			      escenicImage,
-																			      websection)) {
+                        try (CloseableHttpResponse response =
+                                 EscenicImageProcessor.getInstance().processImage(contentCr,
+                                                                                  escenicImageEntry,
+                                                                                  existingEscenicLocation,
+                                                                                  escenicImage,
+                                                                                  websection)) {
 
 							EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, contentCr, action);
 							String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
@@ -299,14 +299,22 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							}
 						}
 
-						CloseableHttpResponse response = EscenicGalleryProcessor.getInstance().processGallery(collectionAspectBean, existingGalleryEntry, existingEscenicLocation, escenicGallery, websection);
-						EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, contentCr, action);
+                        try (CloseableHttpResponse response =
+                                 EscenicGalleryProcessor.getInstance().processGallery(collectionAspectBean,
+                                                                                      existingGalleryEntry,
+                                                                                      existingEscenicLocation,
+                                                                                      escenicGallery,
+                                                                                      websection)) {
+                            EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, contentCr, action);
 
-						String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
-						String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
-						EscenicGalleryProcessor.getInstance().assignProperties(collectionAspectBean, escenicGallery, escenicId, escenicLocation, contentId, websection);
-						return escenicGallery;
-					}
+                            String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+                            String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
+                            EscenicGalleryProcessor.getInstance().assignProperties(collectionAspectBean, escenicGallery, escenicId, escenicLocation, contentId, websection);
+                            return escenicGallery;
+                        } catch (IOException e) {
+                            LOGGER.log(Level.SEVERE, "Error occurred while processing a gallery", e);
+                        }
+                    }
 				} else if (contentData instanceof ExternalReferenceVideoBean) {
 					ExternalReferenceVideoBean externalReferenceVideoBean = (ExternalReferenceVideoBean) contentData;
 					EscenicContentReference escenicContentReference = new EscenicContentReference();
