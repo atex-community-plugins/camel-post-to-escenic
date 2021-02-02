@@ -213,13 +213,13 @@ public class EscenicContentProcessor {
 		throw new FailedToProcessSectionIdException("Unable to retrieve escenic section id for content: " + cr.getContentId());
 	}
 
-	protected EngagementDesc evaluateResponse(ContentId contentId,
-											  String existingEscenicLocation,
-											  String existingEscenicId,
-											  boolean updateWebAttribute,
-											  CloseableHttpResponse response,
-											  ContentResult cr,
-											  String action) throws EscenicException {
+    protected EngagementDesc evaluateResponse(ContentId contentId,
+                                              String existingEscenicLocation,
+                                              String existingEscenicId,
+                                              boolean updateWebAttribute,
+                                              CloseableHttpResponse response,
+                                              ContentResult cr,
+                                              String action) throws EscenicException {
 		if (response != null) {
 			String escenicId = null;
 			String escenicLocation = null;
@@ -315,20 +315,20 @@ public class EscenicContentProcessor {
 		return null;
 	}
 
-	protected void processEngagement(ContentId contentId,
-									 EngagementDesc engagement,
-									 String existingEscenicLocation,
-									 ContentResult cr) {
+    protected void processEngagement(ContentId contentId,
+                                     EngagementDesc engagement,
+                                     String existingEscenicLocation,
+                                     ContentResult cr) {
 
 		processEngagement(contentId, engagement, existingEscenicLocation, cr, null, null);
 	}
 
-	protected void processEngagement(ContentId contentId,
-									 EngagementDesc engagement,
-									 String existingEscenicLocation,
-									 ContentResult cr,
-									 WFContentStatusAspectBean wfContentStatusAspectBean,
-									 WebContentStatusAspectBean webContentStatusAspectBean) {
+    protected void processEngagement(ContentId contentId,
+                                     EngagementDesc engagement,
+                                     String existingEscenicLocation,
+                                     ContentResult cr,
+                                     WFContentStatusAspectBean wfContentStatusAspectBean,
+                                     WebContentStatusAspectBean webContentStatusAspectBean) {
 
 		Preconditions.checkNotNull(contentId, "contentId cannot be null");
 		Preconditions.checkNotNull(engagement, "engagement cannot be null");
@@ -372,7 +372,11 @@ public class EscenicContentProcessor {
 
 	}
 
-	private Collection<Aspect> getFinalAspects(ContentResult cr, ContentWrite cw, WFContentStatusAspectBean wfContentStatusAspectBean, WebContentStatusAspectBean webContentStatusAspectBean) {
+    private Collection<Aspect> getFinalAspects(ContentResult cr,
+                                               ContentWrite cw,
+                                               WFContentStatusAspectBean wfContentStatusAspectBean,
+                                               WebContentStatusAspectBean webContentStatusAspectBean) {
+
 		Collection<Aspect> aspects = new ArrayList();
 
 		if (cr != null && cr.getContent() != null) {
@@ -523,7 +527,7 @@ public class EscenicContentProcessor {
 		return wfStatus;
 	}
 
-	private WebContentStatusAspectBean getUpdatedWebStatus(ContentResult<OneContentBean> cr, String action) throws ContentModifiedException {//change code here to load content again?
+	private WebContentStatusAspectBean getUpdatedWebStatus(ContentResult<OneContentBean> cr, String action) throws ContentModifiedException {
 		if (cr != null && cr.getStatus().isSuccess()) {
 			if (cr.getContent() != null) {
 				Content content = cr.getContent();

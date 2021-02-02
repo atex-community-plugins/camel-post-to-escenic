@@ -167,11 +167,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return null;
 	}
 
-	protected CloseableHttpResponse processImage(ContentResult imgCr,
-												 Entry existingImgEntry,
-												 String existingEscenicLocation,
-												 EscenicImage escenicImage,
-												 Websection websection) throws FailedToSendContentToEscenicException, EscenicResponseException {
+    protected CloseableHttpResponse processImage(ContentResult imgCr,
+                                                 Entry existingImgEntry,
+                                                 String existingEscenicLocation,
+                                                 EscenicImage escenicImage,
+                                                 Websection websection) throws FailedToSendContentToEscenicException, EscenicResponseException {
+
 		CloseableHttpResponse response = null;
 		String binaryUrl = escenicUtils.getEscenicConfig().getBinaryUrl();
 		if (StringUtils.isEmpty(binaryUrl)) {
@@ -231,13 +232,13 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	}
 
-	protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
-															ContentResult<R> cr,
-															ImageInfoAspectBean imageInfoAspectBean,
-															ImageEditInfoAspectBean imageEditInfoAspectBean,
-															FileService fileService,
-															ContentFileInfo contentFileInfo,
-															Subject subject) throws CMException, IOException {
+    protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
+                                                            ContentResult<R> cr,
+                                                            ImageInfoAspectBean imageInfoAspectBean,
+                                                            ImageEditInfoAspectBean imageEditInfoAspectBean,
+                                                            FileService fileService,
+                                                            ContentFileInfo contentFileInfo,
+                                                            Subject subject) throws CMException, IOException {
 
 		int maxImageWidth = getMaxImageWidth();
 
@@ -318,11 +319,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	private void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
-							   final int newWidth,
-							   final int newHeight,
-							   final float widthRatio,
-							   final float heightRatio) {
+    private void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
+                               final int newWidth,
+                               final int newHeight,
+                               final float widthRatio,
+                               final float heightRatio) {
+
 		imageEditInfo.getCrops().values().forEach(crop -> {
 			Rectangle cropRectangle = crop.getCropRectangle();
 
@@ -354,10 +356,11 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return cleanPath;
 	}
 
-	private String sendBinaryImage(ContentResult imgCr,
-								   String binaryUrl,
-								   Entry existingImgEntry,
-								   ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
+    private String sendBinaryImage(ContentResult imgCr,
+                                   String binaryUrl,
+                                   Entry existingImgEntry,
+                                   ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
+
 		String location = null;
 		if (imgCr != null) {
 			Content cresultContent = imgCr.getContent();
@@ -440,11 +443,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean,
-												   Content cresultContent,
-												   String binaryLocation,
-												   Websection websection,
-												   ImageEditInfoAspectBean imageEditInfoAspectBean) {
+    private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean,
+                                                   Content cresultContent,
+                                                   String binaryLocation,
+                                                   Websection websection,
+                                                   ImageEditInfoAspectBean imageEditInfoAspectBean) {
+
 		if (oneImageBean != null) {
 			Entry entry = new Entry();
 			Title title = escenicUtils.createTitle(oneImageBean.getName(), "text");
@@ -508,12 +512,13 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return fields;
 	}
 
-	protected void assignProperties(OneImageBean oneImageBean,
-									EscenicImage escenicImage,
-									String escenicId,
-									String escenicLocation,
-									ContentId contentId,
-									Websection websection) {
+    protected void assignProperties(OneImageBean oneImageBean,
+                                    EscenicImage escenicImage,
+                                    String escenicId,
+                                    String escenicLocation,
+                                    ContentId contentId,
+                                    Websection websection) {
+
 		escenicImage.setEscenicId(escenicId);
 		escenicImage.setEscenicLocation(escenicLocation);
 		escenicImage.setOnecmsContentId(contentId);

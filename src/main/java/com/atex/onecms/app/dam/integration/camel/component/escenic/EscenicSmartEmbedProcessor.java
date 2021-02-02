@@ -43,7 +43,12 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		}
 	}
 
-	protected List<EscenicContent> process(ContentResult<Object> cr, OneArticleBean article, List<EscenicContent> escenicContentList, Websection websection, String action) throws IOException, URISyntaxException, EscenicException {
+    protected List<EscenicContent> process(ContentResult<Object> cr,
+                                           OneArticleBean article,
+                                           List<EscenicContent> escenicContentList,
+                                           Websection websection,
+                                           String action) throws IOException, URISyntaxException, EscenicException {
+
 		LOGGER.finest("Processing smart embeds");
 		List<EscenicContent> inlineContentList = new ArrayList<>();
 		if (cr.getStatus().isSuccess()) {
@@ -123,9 +128,9 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		return inlineContentList;
 	}
 
-	protected CloseableHttpResponse processEmbed(CustomEmbedParser.SmartEmbed embed,
-												 EscenicEmbed escenicEmbed,
-												 Websection websection) throws FailedToSendContentToEscenicException {
+    protected CloseableHttpResponse processEmbed(CustomEmbedParser.SmartEmbed embed,
+                                                 EscenicEmbed escenicEmbed,
+                                                 Websection websection) throws FailedToSendContentToEscenicException {
 
 		String xml = constructAtomEntryForSocialEmbed(escenicEmbed, embed, websection);
 		if (StringUtils.isNotEmpty(xml)) {

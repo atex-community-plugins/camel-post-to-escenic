@@ -44,13 +44,14 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	private void assingEmbedProperties(DamEmbedAspectBean embedBean,
-									   ContentId contentId,
-									   String existingEscenicLocation,
-									   String escenicId,
-									   String embedUrl,
-									   EscenicEmbed escenicEmbed,
-									   Websection websection) {
+    private void assingEmbedProperties(DamEmbedAspectBean embedBean,
+                                       ContentId contentId,
+                                       String existingEscenicLocation,
+                                       String escenicId,
+                                       String embedUrl,
+                                       EscenicEmbed escenicEmbed,
+                                       Websection websection) {
+	    
 		escenicEmbed.setEscenicLocation(existingEscenicLocation);
 		escenicEmbed.setEscenicId(escenicId);
 		escenicEmbed.setTitle(embedBean.getName());

@@ -104,11 +104,11 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 							}
 						}
 
-					try (CloseableHttpResponse response = processGallery(collectionAspectBean,
-																		 existingGalleryEntry,
-																		 existingEscenicLocation,
-																		 escenicGallery,
-																		 websection)) {
+                    try (CloseableHttpResponse response = processGallery(collectionAspectBean,
+                                                                         existingGalleryEntry,
+                                                                         existingEscenicLocation,
+                                                                         escenicGallery,
+                                                                         websection)) {
 
 						EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, collectionCr, action);
 						String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
@@ -125,12 +125,12 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 		return escenicGallery;
 	}
 
-	protected void assignProperties(DamCollectionAspectBean collectionAspectBean,
-									EscenicGallery escenicGallery,
-									String escenicId,
-									String escenicLocation,
-									ContentId contentId,
-									Websection websection) {
+    protected void assignProperties(DamCollectionAspectBean collectionAspectBean,
+                                    EscenicGallery escenicGallery,
+                                    String escenicId,
+                                    String escenicLocation,
+                                    ContentId contentId,
+                                    Websection websection) {
 
 		escenicGallery.setEscenicId(escenicId);
 		escenicGallery.setEscenicLocation(escenicLocation);
@@ -141,11 +141,11 @@ public class EscenicGalleryProcessor extends EscenicSmartEmbedProcessor {
 		escenicGallery.setLinks(links);
 	}
 
-	public CloseableHttpResponse processGallery(DamCollectionAspectBean collectionAspectBean,
-												Entry existingGalleryEntry,
-												String existingEscenicLocation,
-												EscenicGallery escenicGallery,
-												Websection websection) throws FailedToSendContentToEscenicException {
+    public CloseableHttpResponse processGallery(DamCollectionAspectBean collectionAspectBean,
+                                                Entry existingGalleryEntry,
+                                                String existingEscenicLocation,
+                                                EscenicGallery escenicGallery,
+                                                Websection websection) throws FailedToSendContentToEscenicException {
 
 		CloseableHttpResponse response = null;
 		if (escenicGallery != null && collectionAspectBean != null) {

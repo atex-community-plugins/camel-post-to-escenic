@@ -72,26 +72,26 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 			return escenicContentReference;
 		}
 
-		protected void assignEscenicContentProperties(ExternalReferenceBean externalReferenceBean,
-													  ContentId contentId,
-													  EscenicContentReference escenicContentReference,
-													  Websection websection) {
+    protected void assignEscenicContentProperties(ExternalReferenceBean externalReferenceBean,
+                                                  ContentId contentId,
+                                                  EscenicContentReference escenicContentReference,
+                                                  Websection websection) {
 
-			if (StringUtils.isNotBlank(externalReferenceBean.getExternalReferenceContentType())) {
-				escenicContentReference.setType(externalReferenceBean.getExternalReferenceContentType());
-			}
+        if (StringUtils.isNotBlank(externalReferenceBean.getExternalReferenceContentType())) {
+            escenicContentReference.setType(externalReferenceBean.getExternalReferenceContentType());
+        }
 
-			escenicContentReference.setEscenicLocation(externalReferenceBean.getLocation());
-			escenicContentReference.setEscenicId(externalReferenceBean.getExternalReferenceId());
-			escenicContentReference.setTitle(externalReferenceBean.getTitle());
+        escenicContentReference.setEscenicLocation(externalReferenceBean.getLocation());
+        escenicContentReference.setEscenicId(externalReferenceBean.getExternalReferenceId());
+        escenicContentReference.setTitle(externalReferenceBean.getTitle());
 
-			if (StringUtils.isNotBlank(externalReferenceBean.getThumbnailUrl())) {
-				escenicContentReference.setThumbnailUrl(externalReferenceBean.getThumbnailUrl());
-			}
+        if (StringUtils.isNotBlank(externalReferenceBean.getThumbnailUrl())) {
+            escenicContentReference.setThumbnailUrl(externalReferenceBean.getThumbnailUrl());
+        }
 
-			escenicContentReference.setOnecmsContentId(contentId);
-			List<Link> links = escenicUtils.generateLinks(escenicContentReference, websection);
-			escenicContentReference.setLinks(links);
+        escenicContentReference.setOnecmsContentId(contentId);
+        List<Link> links = escenicUtils.generateLinks(escenicContentReference, websection);
+        escenicContentReference.setLinks(links);
 
-		}
+    }
 }

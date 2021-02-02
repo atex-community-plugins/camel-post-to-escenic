@@ -57,9 +57,10 @@ public class EscenicContentToExternalReferenceContentConverter {
 		this.contentManager = contentManager;
 	}
 
-	public ContentResult process(EscenicUtils escenicUtils,
-								 Entry entry, String escenicId,
-								 Caller caller) throws IOException, ErrorResponseException, EscenicException {
+    public ContentResult process(EscenicUtils escenicUtils,
+                                 Entry entry, String escenicId,
+                                 Caller caller) throws IOException, ErrorResponseException, EscenicException {
+
 		String type = null;
 		String location = null;
 		String thumbnailUrl = null;
@@ -86,13 +87,13 @@ public class EscenicContentToExternalReferenceContentConverter {
 
 	}
 
-	private ContentResult createExternalReference(EscenicUtils escenicUtils,
-												  String type,
-												  String escenicId,
-												  String location,
-												  String thumbnailUrl,
-												  Entry entry,
-												  Caller caller) throws EscenicException {
+    private ContentResult createExternalReference(EscenicUtils escenicUtils,
+                                                  String type,
+                                                  String escenicId,
+                                                  String location,
+                                                  String thumbnailUrl,
+                                                  Entry entry,
+                                                  Caller caller) throws EscenicException {
 
 		ContentWrite content = null;
 
@@ -163,12 +164,12 @@ public class EscenicContentToExternalReferenceContentConverter {
 		throw new EscenicException("Attempt to create content write for external reference object failed");
 	}
 
-	private void assignProperties(ExternalReferenceBean externalReferenceBean,
-								  Entry entry,
-								  String type,
-								  String escenicId,
-								  String location,
-								  String thumbnailUrl) {
+    private void assignProperties(ExternalReferenceBean externalReferenceBean,
+                                  Entry entry,
+                                  String type,
+                                  String escenicId,
+                                  String location,
+                                  String thumbnailUrl) {
 
 		externalReferenceBean.setTitle(getFieldValue(entry.getContent().getPayload().getField(), "title"));
 		externalReferenceBean.setName(getFieldValue(entry.getContent().getPayload().getField(), "title"));
@@ -219,23 +220,23 @@ public class EscenicContentToExternalReferenceContentConverter {
 			throw new RuntimeException("Failed to read remote api url");
 		}
 
-		return UriBuilder
-			.fromPath(apiUrl)
-			.path("file")
-			.path("tmp")
-			.path(FriendlyUrlConverter.convert(userName))
-			.path(filePath)
-			.build()
-			.toASCIIString();
+        return UriBuilder
+            .fromPath(apiUrl)
+            .path("file")
+            .path("tmp")
+            .path(FriendlyUrlConverter.convert(userName))
+            .path(filePath)
+            .build()
+            .toASCIIString();
 	}
 
-	private WebServiceResponse uploadToFileService(String filePath, InputStream is, String mimeType, String authToken) throws Exception {
-		return HttpDamUtils.sendStreamToFileService(
-			mimeType,
-			is,
-			createFileServiceUrl(DamUtils.getRemoteUser(), filePath),
-			authToken);
-	}
+    private WebServiceResponse uploadToFileService(String filePath, InputStream is, String mimeType, String authToken) throws Exception {
+        return HttpDamUtils.sendStreamToFileService(
+            mimeType,
+            is,
+            createFileServiceUrl(DamUtils.getRemoteUser(), filePath),
+            authToken);
+    }
 
 	private static final Gson GSON = new GsonBuilder().create();
 	private ContentFileInfo buildContentFileInfo(final String response, final String cleanPath) throws CMException {
