@@ -4,10 +4,10 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.Esc
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.standard.aspects.*;
 import com.atex.onecms.content.*;
-import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -16,12 +16,11 @@ import java.util.logging.Logger;
  */
 public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 
-		private static com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicRelatedContentProcessor instance;
-		protected static final Logger LOGGER = Logger.getLogger(com.atex.onecms.app.dam.integration.camel.component.escenic.EscenicRelatedContentProcessor.class.getName());
+		private static EscenicRelatedContentProcessor instance;
+		protected static final Logger LOGGER = Logger.getLogger(EscenicRelatedContentProcessor.class.getName());
 
-		public EscenicRelatedContentProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
-			super(contentManager, cmServer, escenicUtils, escenicConfig);
-
+		public EscenicRelatedContentProcessor(EscenicUtils escenicUtils) {
+			super(escenicUtils);
 		}
 
 		public synchronized static EscenicRelatedContentProcessor getInstance() {
@@ -31,13 +30,13 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 			return instance;
 		}
 
-		public synchronized static void initInstance(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
+		public synchronized static void initInstance(EscenicUtils escenicUtils) {
 			if (instance == null) {
-				instance = new EscenicRelatedContentProcessor(contentManager, cmServer, escenicUtils, escenicConfig);
+				instance = new EscenicRelatedContentProcessor(escenicUtils);
 			}
 		}
 
-		protected EscenicContentReference process(CustomEmbedParser.SmartEmbed embed) throws EscenicException {
+		protected EscenicContentReference process(CustomEmbedParser.SmartEmbed embed, Websection websection) throws EscenicException {
 			ContentId contentId = null;
 			if (embed != null && embed.getContentId() != null) {
 				contentId = embed.getContentId();
@@ -55,12 +54,12 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 						try {
 							externalReferenceBean = (ExternalReferenceBean) escenicUtils.extractContentBean(externalReferenceCr);
 						} catch (Exception e) {
-							LOGGER.severe("Failed to retrieve ExternalReferenceBean bean for : " + externalReferenceCr.getContentId());
+							LOGGER.log(Level.SEVERE, "Failed to retrieve ExternalReferenceBean bean for : " + externalReferenceCr.getContentId(), e);
 							throw new EscenicException("An embedded link to a related article is linking to a Desk article, please fix and retry publish");
 						}
 
 						if (externalReferenceBean != null) {
-							assignEscenicContentProperties(externalReferenceBean, contentId, escenicContentReference);
+							assignEscenicContentProperties(externalReferenceBean, contentId, escenicContentReference, websection);
 						}
 					}
 				} else {
@@ -73,23 +72,26 @@ public class EscenicRelatedContentProcessor extends EscenicContentProcessor {
 			return escenicContentReference;
 		}
 
-		private void assignEscenicContentProperties(ExternalReferenceBean externalReferenceBean, ContentId contentId, EscenicContentReference escenicContentReference) {
+    protected void assignEscenicContentProperties(ExternalReferenceBean externalReferenceBean,
+                                                  ContentId contentId,
+                                                  EscenicContentReference escenicContentReference,
+                                                  Websection websection) {
 
-			if (StringUtils.isNotBlank(externalReferenceBean.getExternalReferenceContentType())) {
-				escenicContentReference.setType(externalReferenceBean.getExternalReferenceContentType());
-			}
+        if (StringUtils.isNotBlank(externalReferenceBean.getExternalReferenceContentType())) {
+            escenicContentReference.setType(externalReferenceBean.getExternalReferenceContentType());
+        }
 
-			escenicContentReference.setEscenicLocation(externalReferenceBean.getLocation());
-			escenicContentReference.setEscenicId(externalReferenceBean.getExternalReferenceId());
-			escenicContentReference.setTitle(externalReferenceBean.getTitle());
+        escenicContentReference.setEscenicLocation(externalReferenceBean.getLocation());
+        escenicContentReference.setEscenicId(externalReferenceBean.getExternalReferenceId());
+        escenicContentReference.setTitle(externalReferenceBean.getTitle());
 
-			if (StringUtils.isNotBlank(externalReferenceBean.getThumbnailUrl())) {
-				escenicContentReference.setThumbnailUrl(externalReferenceBean.getThumbnailUrl());
-			}
+        if (StringUtils.isNotBlank(externalReferenceBean.getThumbnailUrl())) {
+            escenicContentReference.setThumbnailUrl(externalReferenceBean.getThumbnailUrl());
+        }
 
-			escenicContentReference.setOnecmsContentId(contentId);
-			List<Link> links = escenicUtils.generateLinks(escenicContentReference);
-			escenicContentReference.setLinks(links);
+        escenicContentReference.setOnecmsContentId(contentId);
+        List<Link> links = escenicUtils.generateLinks(escenicContentReference, websection);
+        escenicContentReference.setLinks(links);
 
-		}
+    }
 }

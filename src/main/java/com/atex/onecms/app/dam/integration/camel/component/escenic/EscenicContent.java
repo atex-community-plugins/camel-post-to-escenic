@@ -17,6 +17,7 @@ public class EscenicContent {
 	private ContentId onecmsContentId;
 	private String title;
 	private boolean inlineElement = true;
+	private boolean topElement = false;
 	private List<Link> links = new ArrayList<>();
 
 	//the id generated for linked content
@@ -76,5 +77,13 @@ public class EscenicContent {
 
 	public void setInlineElement(boolean inlineElement) {
 		this.inlineElement = inlineElement;
+	}
+
+	public boolean isTopElement() {
+		return topElement;
+	}
+
+	public void setTopElement(boolean topElement) {
+		this.topElement = topElement;
 	}
 }

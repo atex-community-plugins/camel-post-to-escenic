@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,10 +31,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import com.atex.gong.utils.WsErrorUtil;
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.engagement.EngagementElement;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicResponseException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToDeserializeContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToRetrieveEscenicContentException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToSendContentToEscenicException;
@@ -56,19 +55,22 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Value;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.ws.EscenicResource;
 import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
 import com.atex.onecms.app.dam.standard.aspects.OneContentBean;
-import com.atex.onecms.content.ConfigurationDataBean;
+import com.atex.onecms.app.dam.util.DamEngagementUtils;
 import com.atex.onecms.content.ContentId;
 import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.IdUtil;
 import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.repository.StorageException;
 import com.atex.onecms.ws.service.ErrorResponseException;
 import com.atex.plugins.structured.text.StructuredText;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
+import com.polopoly.cm.policy.PolicyCMServer;
 import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
 import org.apache.commons.beanutils.PropertyUtils;
+import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.http.Header;
@@ -104,7 +106,6 @@ public class EscenicUtils {
 
 	private static String AUTH_PREFIX = "Basic ";
 	private static final java.util.logging.Logger LOGGER = Logger.getLogger(EscenicUtils.class.getName());
-	protected EscenicConfig escenicConfig;
 	protected static final String INLINE_RELATIONS_GROUP = "com.escenic.inlineRelations";
 	protected static final String PICTURE_RELATIONS_GROUP = "pictureRel";
 	protected static final String THUMBNAIL_RELATION_GROUP = "thumbnail";
@@ -112,6 +113,10 @@ public class EscenicUtils {
 	protected static final String ATOM_APP_ENTRY_TYPE = APP_ATOM_XML + "; type=entry";
 	protected static final String RELATED = "related";
 	protected static final String PUBLISHED_STATE = "published";
+	protected EscenicConfig escenicConfig;
+	protected ContentManager contentManager;
+	protected DamEngagementUtils engagementUtils;
+	protected PolicyCMServer cmServer;
 
 	public CloseableHttpClient getHttpClient() {
 		return httpClient;
@@ -125,8 +130,10 @@ public class EscenicUtils {
 		.setSocketTimeout(TIMEOUT).build();
 
 
-	public EscenicUtils(EscenicConfig escenicConfig) {
+	public EscenicUtils(EscenicConfig escenicConfig, ContentManager contentManager, PolicyCMServer cmServer) {
 		this.escenicConfig = escenicConfig;
+		this.contentManager = contentManager;
+		this.cmServer = cmServer;
 		this.httpClient = HttpClients.custom()
 			.disableAutomaticRetries()
 			.disableCookieManagement()
@@ -135,51 +142,6 @@ public class EscenicUtils {
 			.build();
 		LOGGER.setLevel(Level.FINEST);
 	}
-
-	//TODO - REMOVE LATER - temporarily load from content rather than through web service call
-	public String retrieveSectionListFromContent(ContentManager contentManager) throws ErrorResponseException {
-		final ContentVersionId versionId = contentManager.resolve("escenic.section.mappings.list.configuration", Subject.NOBODY_CALLER);
-		final ContentResult<ConfigurationDataBean> cr = contentManager.get(versionId, ConfigurationDataBean.class, Subject.NOBODY_CALLER);
-		if (cr.getStatus().isError()) {
-			throw WsErrorUtil.error("cannot get configuration", cr.getStatus());
-		}
-		final ConfigurationDataBean contentData = cr.getContent().getContentData();
-		if (contentData.getJson() != null) {
-			if (LOGGER.isLoggable(Level.FINEST)) {
-				LOGGER.finest("Retrieved section list:\n" + contentData.getJson());
-			}
-		}
-		return contentData.getJson();
-	}
-
-
-	public String retrieveSectionList(String location) throws FailedToRetrieveEscenicContentException {
-		if (StringUtils.isBlank(location)) {
-			throw new RuntimeException("Unable to read section list url from config");
-		}
-
-		HttpGet request = new HttpGet(location);
-		Header authHeader = generateAuthenticationHeader(escenicConfig.getSectionListUsername(), escenicConfig.getSectionListPassword());
-		request.setHeader(authHeader);
-
-		try (CloseableHttpResponse result = httpClient.execute(request);){
-			String xml = null;
-			if (result.getEntity() != null) {
-				xml = EntityUtils.toString(result.getEntity());
-			}
-
-			if (LOGGER.isLoggable(Level.FINEST)) {
-				LOGGER.finest("Retrieved section list:\n" + xml);
-			}
-			return xml;
-		} catch (Exception e) {
-			LOGGER.severe("An error occurred when attempting to retrieve content from escenic at location: " + location);
-			throw new FailedToRetrieveEscenicContentException("An error occurred when attempting to retrieve content from escenic at location: " + location + " due to : " + e);
-		} finally {
-			request.releaseConnection();
-		}
-	}
-
 
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
 		HttpGet request = new HttpGet(location);
@@ -245,7 +207,11 @@ public class EscenicUtils {
 		}
 	}
 
-	protected Field createField(String fieldName, Object value, List<Field> fields, com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
+    protected Field createField(String fieldName,
+                                Object value,
+                                List<Field> fields,
+                                com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list) {
+
 		return new Field(fieldName, createValue(fieldName, value), fields, list);
 	}
 
@@ -281,7 +247,7 @@ public class EscenicUtils {
 					element.remove();
 				}
 			}
-			
+
 			return doc;
 	}
 
@@ -313,7 +279,6 @@ public class EscenicUtils {
 
 			final org.jsoup.nodes.Document doc = Jsoup.parseBodyFragment(structuredText);
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-//			doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
 			structuredText = doc.body().html();
 		}
 
@@ -365,12 +330,16 @@ public class EscenicUtils {
 		return entity;
 	}
 
-	protected InputStreamEntity generateImageEntity(InputStream in, String mimeType) {
-		final ContentType contentType = ContentType.create(
-			Optional.ofNullable(mimeType)
-				.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
+	public InputStreamEntity generateImageEntity(InputStream in, String mimeType) {
+		final ContentType contentType = getContentTypeForMimeType(mimeType);
 		final InputStreamEntity inputStreamEntity = new InputStreamEntity(in, contentType);
 		return inputStreamEntity;
+	}
+
+	public ContentType getContentTypeForMimeType(String mimeType) {
+		return ContentType.create(
+			Optional.ofNullable(mimeType)
+				.orElse(ContentType.APPLICATION_OCTET_STREAM.getMimeType()));
 	}
 
 	protected Header generateContentTypeHeader(String contentType) {
@@ -387,9 +356,13 @@ public class EscenicUtils {
 		return new BasicHeader(HttpHeaders.AUTHORIZATION, AUTH_PREFIX + encoding);
 	}
 
-	protected CloseableHttpResponse sendNewContentToEscenic(String xmlContent, String sectionId) throws FailedToSendContentToEscenicException {
+	protected CloseableHttpResponse sendNewContentToEscenic(String xmlContent, Websection websection) throws FailedToSendContentToEscenicException {
 
-		if (StringUtils.isBlank(sectionId)) {
+		if (websection == null) {
+			throw new RuntimeException("Failed to extract section id - websection was blank.");
+		}
+
+		if (StringUtils.isBlank(websection.getEscenicId())) {
 			throw new RuntimeException("Unable to send content to escenic due to blank section id");
 		}
 
@@ -397,7 +370,7 @@ public class EscenicUtils {
 			throw new RuntimeException("Blank or missing escenic ApiUrl");
 		}
 
-		String url = escenicConfig.getApiUrl() + "/webservice/escenic/section/" + sectionId + "/content-items";
+		String url = escenicConfig.getApiUrl() + "/webservice/escenic/section/" + websection.getEscenicId() + "/content-items";
 
 		HttpPost request = new HttpPost(url);
 		request.setEntity(generateAtomEntity(xmlContent));
@@ -467,8 +440,6 @@ public class EscenicUtils {
 			JAXBContext jaxbContext = JAXBContext.newInstance(Entry.class);
 			Marshaller marshaller = jaxbContext.createMarshaller();
 			marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-//			marshaller.setProperty(Marshaller.JAXB_ENCODING, "Unicode");
-//			marshaller.setProperty(Marshaller.JAXB_ENCODING, "utf8");
 			marshaller.setProperty(CharacterEscapeHandler.class.getName(), new CustomCharacterEscapeHandler());
 			marshaller.marshal(object, new StreamResult(stringWriter));
 			return stringWriter.getBuffer().toString();
@@ -503,14 +474,14 @@ public class EscenicUtils {
 		return CharMatcher.ASCII.retainFrom(component);
 	}
 
-	public List<Link> generateLinks(EscenicContent escenicContent) {
+	public List<Link> generateLinks(EscenicContent escenicContent, Websection websection) {
 		List<Link> links = new ArrayList<>();
 		if (escenicContent != null) {
 
 			if (escenicContent instanceof EscenicImage) {
 				EscenicImage escenicImage = (EscenicImage) escenicContent;
 				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
-					null, null, null, null, null, null);
+					null, null, null, null, null, null, websection);
 
 				if (link != null) {
 					links.add(link);
@@ -522,7 +493,7 @@ public class EscenicUtils {
 					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), EscenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
-						escenicImage.getTitle(), PUBLISHED_STATE);
+						escenicImage.getTitle(), PUBLISHED_STATE, websection);
 
 					if (topElementLink != null) {
 						links.add(topElementLink);
@@ -535,7 +506,7 @@ public class EscenicUtils {
 					fields.add(createField("caption", escapeXml(escenicImage.getCaption()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicImage.getThumbnailUrl(), escenicImage.IMAGE_MODEL_CONTENT_SUMMARY,
 						escenicImage.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicImage.getEscenicId(),
-						escenicImage.getTitle(), PUBLISHED_STATE);
+						escenicImage.getTitle(), PUBLISHED_STATE, websection);
 
 					if (inlineElementLink != null) {
 						links.add(inlineElementLink);
@@ -546,7 +517,7 @@ public class EscenicUtils {
 			} else if (escenicContent instanceof EscenicGallery) {
 				EscenicGallery escenicGallery = (EscenicGallery) escenicContent;
 				Link link = createLink(null, THUMBNAIL_RELATION_GROUP, escenicGallery.getThumbnailUrl(), EscenicImage.THUMBNAIL_MODEL_TYPE,
-					null, null, null, null, null, null);
+					null, null, null, null, null, null, websection);
 
 				if (link != null) {
 					links.add(link);
@@ -557,7 +528,7 @@ public class EscenicUtils {
 					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
-						escenicGallery.getTitle(), PUBLISHED_STATE);
+						escenicGallery.getTitle(), PUBLISHED_STATE, websection);
 					if (topElementLink != null) {
 						links.add(topElementLink);
 					}
@@ -568,7 +539,7 @@ public class EscenicUtils {
 					fields.add(createField("title", escapeXml(escenicGallery.getTitle()), null, null));
 					Link inlineElementLink = createLink(fields, INLINE_RELATIONS_GROUP, escenicGallery.getThumbnailUrl(), EscenicGallery.GALLERY_MODEL_CONTENT_SUMMARY,
 						escenicGallery.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicGallery.getEscenicId(),
-						escenicGallery.getTitle(), PUBLISHED_STATE);
+						escenicGallery.getTitle(), PUBLISHED_STATE, websection);
 
 					if (inlineElementLink != null) {
 						links.add(inlineElementLink);
@@ -581,7 +552,7 @@ public class EscenicUtils {
 				fields.add(createField("title", escapeXml(escenicEmbed.getTitle()), null, null));
 				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null, EscenicEmbed.EMBED_MODEL_CONTENT_SUMMARY,
 					escenicEmbed.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicEmbed.getEscenicId(),
-					escenicEmbed.getTitle(), PUBLISHED_STATE);
+					escenicEmbed.getTitle(), PUBLISHED_STATE, websection);
 
 				if (link != null) {
 					links.add(link);
@@ -591,14 +562,22 @@ public class EscenicUtils {
 				List<Field> fields = new ArrayList<>();
 				fields.add(createField("title", escapeXml(escenicContentReference.getTitle()), null, null));
 
-				Link link = createLink(fields, INLINE_RELATIONS_GROUP, null,  EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType(),
-					escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
-					escenicContentReference.getTitle(), PUBLISHED_STATE);
-
-				if (link != null) {
-					links.add(link);
+				if (escenicContentReference.isTopElement()) {
+					Link topElementLink = createLink(fields, PICTURE_RELATIONS_GROUP, escenicContentReference.getThumbnailUrl(), EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType() ,
+						escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
+						escenicContentReference.getTitle(), PUBLISHED_STATE, websection);
+					if (topElementLink != null) {
+						links.add(topElementLink);
+					}
 				}
-
+				if (escenicContent.isInlineElement()) {
+					Link inlineLink = createLink(fields, INLINE_RELATIONS_GROUP, null,  EscenicContentReference.MODEL_CONTENT_SUMMARY_PREFIX + escenicContentReference.getType(),
+						escenicContentReference.getEscenicLocation(), ATOM_APP_ENTRY_TYPE, RELATED, escenicContentReference.getEscenicId(),
+						escenicContentReference.getTitle(), PUBLISHED_STATE, websection);
+					if (inlineLink != null) {
+						links.add(inlineLink);
+					}
+				}
 			}
 		}
 
@@ -606,11 +585,22 @@ public class EscenicUtils {
 
 	}
 
-	protected Link createLink(List<Field> fields, String group, String thumbnail, String model, String href, String type, String rel, String identifier, String title, String state) {
+    protected Link createLink(List<Field> fields,
+                              String group,
+                              String thumbnail,
+                              String model,
+                              String href,
+                              String type,
+                              String rel,
+                              String identifier,
+                              String title,
+                              String state,
+                              Websection websection) {
+
 		Link link = new Link();
 		Payload payload = new Payload();
 		payload.setField(fields);
-		payload.setModel(escenicConfig.getModelUrl() + model);
+		payload.setModel(getEscenicModel(websection, model));
 
 		if (!StringUtils.isBlank(thumbnail)) {
 			link.setThumbnail(thumbnail);
@@ -728,7 +718,8 @@ public class EscenicUtils {
 
 	private boolean shouldLinkRelationBeAdded(Link existinglink) {
 		if (existinglink != null) {
-			return (!StringUtils.equalsIgnoreCase(existinglink.getGroup(), "pictureRel") && !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "com.escenic.inlineRelations"));
+			return (!StringUtils.equalsIgnoreCase(existinglink.getGroup(), "pictureRel") &&
+				    !StringUtils.equalsIgnoreCase(existinglink.getGroup(), "com.escenic.inlineRelations"));
 		}
 
 		return false;
@@ -1209,4 +1200,137 @@ public class EscenicUtils {
 	public String processStructuredTextField(OneArticleBean article, String fieldName) {
 		return processAndReplaceOvermatterAndNoteTags(getStructuredText(article, fieldName));
 	}
+
+	public boolean imagesPresent(OneArticleBean article) {
+		return article != null && (article.getImages() != null && !article.getImages().isEmpty());
+	}
+
+	public boolean resourcesPresent(OneArticleBean article) {
+		return article != null && (article.getResources() != null && !article.getResources().isEmpty());
+	}
+
+	public boolean isTopElement(ContentId contentId, List<EscenicContent> escenicContentList ) {
+		/**
+		 * This is to prevent pushing the image twice if it's both in body & set as top element as well
+         * note - this method marks the image to be both topElement and Inline which allows to only have one
+         * instance of that image in the content list that will be used to correctly process top element
+         * and parse and process all inline instances
+		 */
+		if (contentId != null) {
+			if (escenicContentList != null) {
+				for (EscenicContent escenicContent : escenicContentList) {
+					if (escenicContent != null && escenicContent.getOnecmsContentId() != null) {
+						if (StringUtils.equalsIgnoreCase(IdUtil.toIdString(escenicContent.getOnecmsContentId()), IdUtil.toIdString(contentId))) {
+							//they're the same, therefore update the escenic content with the flag and return and avoid processing
+							if (escenicContent instanceof EscenicImage) {
+								EscenicImage img = (EscenicImage) escenicContent;
+
+								if (img != null) {
+									img.setInlineElement(true);
+									return true;
+								}
+							}
+
+							if (escenicContent instanceof EscenicGallery) {
+								EscenicGallery gallery = (EscenicGallery) escenicContent;
+
+								if (gallery != null) {
+									gallery.setInlineElement(true);
+									return true;
+								}
+							}
+
+							if (escenicContent instanceof EscenicContentReference) {
+                                EscenicContentReference video = (EscenicContentReference) escenicContent;
+
+                                if (video != null) {
+                                    video.setInlineElement(true);
+                                    return true;
+                                }
+                            }
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+
+	public CloseableHttpResponse getImageThumbnailResponse(String url) throws IOException, ErrorResponseException {
+		if (StringUtils.isNotBlank(url)) {
+			url = URIUtil.encodeQuery(url);
+			if (LOGGER.isLoggable(Level.FINEST)) {
+				LOGGER.finest("Sending the following query to escenic:\n" + url);
+			}
+			HttpGet request = new HttpGet(url);
+			request.setHeader(generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
+			return httpClient.execute(request);
+		}
+		LOGGER.log(Level.SEVERE, "");
+		return null;
+	}
+
+	protected ContentManager getContentManager() {
+		return this.contentManager;
+	}
+
+	protected DamEngagementUtils getEngagementUtils() {
+		if (engagementUtils == null) {
+			engagementUtils = new DamEngagementUtils(contentManager);
+		}
+		return engagementUtils;
+	}
+
+	protected EscenicConfig getEscenicConfig() {
+		return this.escenicConfig;
+	}
+
+	protected PolicyCMServer getCmServer()  {
+		return this.cmServer;
+	}
+
+	public String getEscenicModel(Websection websection, String modelType) {
+		return escenicConfig.getModelUrl() + websection.getPublicationName() + modelType;
+	}
+
+	protected Entry processExitingContent(Entry existingEntry, Entry entry, boolean isArticle) {
+		if (existingEntry != null && entry != null) {
+
+			List<Field> existingFields = getFieldsForEntry(existingEntry);
+			List<Field> newFields = getFieldsForEntry(entry);
+
+			existingFields = generateUpdatedListOfFields(existingFields, newFields);
+			existingEntry.getContent().getPayload().setField(existingFields);
+			existingEntry.setControl(entry.getControl());
+
+			existingEntry.setTitle(entry.getTitle());
+			existingEntry.setLink(mergeLinks(existingEntry.getLink(), entry.getLink()));
+
+			//we're resetting the summary to ensure invalid xhtml chars are being escaped
+			cleanUpSummary(existingEntry);
+			existingEntry.setPublication(cleanUpPublication(existingEntry.getPublication()));
+
+			if (isArticle) {
+				existingEntry.setAvailable(entry.getAvailable());
+				existingEntry.setExpires(entry.getExpires());
+				if (StringUtils.isNotBlank(entry.getPublished())) {
+					existingEntry.setUpdated(entry.getPublished());
+				} else {
+					existingEntry.setUpdated(existingEntry.getPublished());
+				}
+			}
+
+			return existingEntry;
+		}
+		return entry;
+	}
+
+	public int getResponseStatusCode(CloseableHttpResponse response) throws EscenicResponseException {
+		if (response != null && response.getStatusLine() != null) {
+			return response.getStatusLine().getStatusCode();
+		}
+		throw new EscenicResponseException("Failed to process the response from escenic web service.");
+	}
+
 }

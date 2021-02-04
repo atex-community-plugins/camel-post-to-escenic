@@ -1,0 +1,6 @@
+id:atex.onecms.indexing.variantconfig
+major:3
+component:composer:atex.onecms.external.reference:desk.content.indexing.indexComposer
+component:composer:atex.onecms.external.video.reference:desk.content.indexing.indexComposer
+component:mapper:atex.onecms.external.reference:one.content.indexing.mapper
+component:mapper:atex.onecms.external.video.reference:one.content.indexing.mapper

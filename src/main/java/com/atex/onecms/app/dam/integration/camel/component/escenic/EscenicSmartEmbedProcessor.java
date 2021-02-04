@@ -14,12 +14,10 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
 import com.atex.onecms.app.dam.standard.aspects.OneArticleBean;
-import com.atex.onecms.app.dam.util.DamEngagementUtils;
+import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
 import com.atex.onecms.content.Content;
-import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
-import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 
@@ -28,11 +26,8 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 	private static EscenicSmartEmbedProcessor instance;
 	private static final Logger LOGGER = Logger.getLogger(EscenicSmartEmbedProcessor.class.getName());
 
-	public EscenicSmartEmbedProcessor() {
-	}
-
-	public EscenicSmartEmbedProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
-		super(contentManager, cmServer, escenicUtils, escenicConfig);
+	public EscenicSmartEmbedProcessor( EscenicUtils escenicUtils) {
+		super(escenicUtils);
 	}
 
 	public synchronized static EscenicSmartEmbedProcessor getInstance() {
@@ -42,35 +37,46 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		return instance;
 	}
 
-	public static synchronized void initInstance(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig) {
+	public static synchronized void initInstance(EscenicUtils escenicUtils) {
 		if (instance == null) {
-			instance = new EscenicSmartEmbedProcessor(contentManager, cmServer, escenicUtils, escenicConfig);
+			instance = new EscenicSmartEmbedProcessor(escenicUtils);
 		}
 	}
 
-	protected List<EscenicContent> process(ContentResult<Object> cr, DamEngagementUtils utils, OneArticleBean article, Entry entry, String sectionId, String action) throws IOException, URISyntaxException, EscenicException {
+    protected List<EscenicContent> process(ContentResult<Object> cr,
+                                           OneArticleBean article,
+                                           List<EscenicContent> escenicContentList,
+                                           Websection websection,
+                                           String action) throws IOException, URISyntaxException, EscenicException {
+
 		LOGGER.finest("Processing smart embeds");
-		List<EscenicContent> escenicContentList = new ArrayList<>();
+		List<EscenicContent> inlineContentList = new ArrayList<>();
 		if (cr.getStatus().isSuccess()) {
 			List<CustomEmbedParser.SmartEmbed> embeds = EscenicSocialEmbedProcessor.getInstance().processEmbeds(article.getBody().getText());
 			Content c = cr.getContent();
 			if (c != null) {
-
 				for (CustomEmbedParser.SmartEmbed embed : embeds) {
 					if (embed != null) {
-
 						if (StringUtils.isNotEmpty(embed.getObjType())) {
 							switch (embed.getObjType()) {
 								case EscenicImage.IMAGE_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
+									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
 										if (embed.getContentId() != null) {
-											EscenicImage escenicImage = new EscenicImage();
-											escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, utils, escenicContentList, sectionId, action);
-
-											if (escenicImage != null) {
-												escenicContentList.add(escenicImage);
-											} else {
-												LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+											//extract here
+											ContentResult item = escenicUtils.checkAndExtractContentResult(embed.getContentId(), contentManager);
+											if (item != null && item.getStatus().isSuccess()) {
+												Object bean = escenicUtils.extractContentBean(item);
+												if (bean != null && bean instanceof OneImageBean) {
+													if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
+														EscenicImage escenicImage = new EscenicImage();
+														escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, websection, action);
+														if (escenicImage != null) {
+															inlineContentList.add(escenicImage);
+														} else {
+															LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+														}
+													}
+												}
 											}
 										} else {
 											LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
@@ -80,10 +86,12 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 									break;
 
 								case EscenicGallery.GALLERY_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
-										if (embed.getContentId() != null) {
-											EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), embed, utils, sectionId, action);
-											escenicContentList.add(escenicGallery);
+									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+										if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
+											if (embed.getContentId() != null) {
+												EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), websection, action);
+												inlineContentList.add(escenicGallery);
+											}
 										}
 									}
 
@@ -91,20 +99,24 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 
 								case EscenicEmbed.SOCIAL_EMBED_TYPE:
 
-									//special case - if there are duplicates parsed from article body we'll only create one content in escenic
+									// special case - if there are duplicates parsed from article body we'll only create one content in escenic
 									// and use the ids for all occurrences
-									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
-										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, utils, cr.getContent().getId().getContentId(), sectionId, action);
-										escenicContentList.add(escenicEmbed);
+									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, websection);
+										inlineContentList.add(escenicEmbed);
 									}
 									break;
 
 								//workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.
 								//once we load them individually by onecms id, we can pick up their actual type in escenic for further processing
+								//Similar process applies to escenic video references (separate bean was required for thumbnails)
 								case EscenicArticle.ARTICLE_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(escenicContentList, embed)) {
-										EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed);
-										escenicContentList.add(escenicContentReference);
+								case EscenicVideo.VIDEO_TYPE:
+									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                        if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
+                                            EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed, websection);
+                                            inlineContentList.add(escenicContentReference);
+                                        }
 									}
 									break;
 							}
@@ -114,18 +126,21 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 			}
 		}
 
-		return escenicContentList;
+		return inlineContentList;
 	}
 
-	protected CloseableHttpResponse processEmbed(CustomEmbedParser.SmartEmbed embed,  EscenicConfig escenicConfig, EscenicEmbed escenicEmbed, String sectionId) throws FailedToSendContentToEscenicException {
-		String xml = constructAtomEntryForSocialEmbed(escenicEmbed, embed, escenicConfig);
+    protected CloseableHttpResponse processEmbed(CustomEmbedParser.SmartEmbed embed,
+                                                 EscenicEmbed escenicEmbed,
+                                                 Websection websection) throws FailedToSendContentToEscenicException {
+
+		String xml = constructAtomEntryForSocialEmbed(escenicEmbed, embed, websection);
 		if (StringUtils.isNotEmpty(xml)) {
-			return escenicUtils.sendNewContentToEscenic(xml, sectionId);
+			return escenicUtils.sendNewContentToEscenic(xml, websection);
 		}
 		return null;
 	}
 
-	private String constructAtomEntryForSocialEmbed(EscenicEmbed escenicEmbed, CustomEmbedParser.SmartEmbed socialEmbed, EscenicConfig escenicConfig) {
+	private String constructAtomEntryForSocialEmbed(EscenicEmbed escenicEmbed, CustomEmbedParser.SmartEmbed socialEmbed, Websection websection) {
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(socialEmbed.getSocialNetwork(), "text");
 		escenicEmbed.setTitle(title.getTitle());
@@ -135,7 +150,7 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 		Control control = escenicUtils.generateControl("no", PUBLISHED_STATE);
 		List<Field> fields = generateSocialEmbedFields(socialEmbed, escenicEmbed);
 		payload.setField(fields);
-		payload.setModel(escenicConfig.getModelUrl() + EscenicEmbed.EMBED_MODEL_CONTENT_TYPE);
+		payload.setModel(escenicUtils.getEscenicModel(websection, EscenicEmbed.EMBED_MODEL_CONTENT_TYPE));
 		content.setPayload(payload);
 		content.setType(com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content.TYPE);
 		entry.setContent(content);

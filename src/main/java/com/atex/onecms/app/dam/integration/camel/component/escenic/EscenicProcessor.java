@@ -4,7 +4,6 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.Con
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.util.DamUtils;
 import com.atex.onecms.content.*;
-import com.atex.onecms.ws.activity.ActivityException;
 import com.atex.onecms.ws.service.AuthenticationUtil;
 import com.polopoly.application.Application;
 import com.polopoly.application.ApplicationInitEvent;
@@ -22,7 +21,6 @@ import org.apache.camel.Processor;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -225,7 +223,7 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 		}
 
 		if (escenicUtils == null) {
-			escenicUtils = new EscenicUtils(escenicConfig);
+			escenicUtils = new EscenicUtils(escenicConfig, contentManager, cmServer);
 		}
 
 		if (httpFileServiceClient == null) {
@@ -251,13 +249,12 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 			}
 		}
 
-		EscenicContentProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
-		EscenicGalleryProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
-		EscenicImageProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig, httpFileServiceClient, imageServiceUrl);
-		EscenicSmartEmbedProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
-		EscenicSocialEmbedProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
-		EscenicArticleProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
-		EscenicRelatedContentProcessor.initInstance(contentManager, cmServer, escenicUtils, escenicConfig);
+		EscenicContentProcessor.initInstance(escenicUtils);
+		EscenicGalleryProcessor.initInstance(escenicUtils);
+		EscenicImageProcessor.initInstance(escenicUtils, httpFileServiceClient, imageServiceUrl);
+		EscenicSmartEmbedProcessor.initInstance(escenicUtils);
+		EscenicSocialEmbedProcessor.initInstance(escenicUtils);
+		EscenicArticleProcessor.initInstance(escenicUtils);
+		EscenicRelatedContentProcessor.initInstance(escenicUtils);
 	}
-
 }

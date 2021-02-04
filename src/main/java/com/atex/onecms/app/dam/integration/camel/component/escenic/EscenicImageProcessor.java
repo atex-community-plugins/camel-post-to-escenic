@@ -26,12 +26,11 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Title;
 import com.atex.onecms.app.dam.standard.aspects.OneImageBean;
-import com.atex.onecms.app.dam.util.DamEngagementUtils;
+
 import com.atex.onecms.app.dam.util.ImageUtils;
 import com.atex.onecms.content.Content;
 import com.atex.onecms.content.ContentFileInfo;
 import com.atex.onecms.content.ContentId;
-import com.atex.onecms.content.ContentManager;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.FilesAspectBean;
 import com.atex.onecms.content.Subject;
@@ -47,7 +46,6 @@ import com.atex.plugins.baseline.util.MimeUtil;
 import com.google.gson.JsonObject;
 import com.polopoly.cm.client.CMException;
 import com.polopoly.cm.client.HttpFileServiceClient;
-import com.polopoly.cm.policy.PolicyCMServer;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
@@ -74,8 +72,8 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 
 
-	public EscenicImageProcessor(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig, HttpFileServiceClient httpFileServiceClient, String imageServiceUrl) {
-		super(contentManager, cmServer, escenicUtils, escenicConfig);
+	public EscenicImageProcessor(EscenicUtils escenicUtils, HttpFileServiceClient httpFileServiceClient, String imageServiceUrl) {
+		super(escenicUtils);
 		this.httpFileServiceClient = httpFileServiceClient;
 		this.imageServiceUrl = imageServiceUrl;
 		this.cropsMapping = initCrops();
@@ -88,9 +86,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return instance;
 	}
 
-	public static synchronized void initInstance(ContentManager contentManager, PolicyCMServer cmServer, EscenicUtils escenicUtils, EscenicConfig escenicConfig, HttpFileServiceClient httpFileServiceClient, String imageServiceUrl) {
+	public static synchronized void initInstance(EscenicUtils escenicUtils, HttpFileServiceClient httpFileServiceClient, String imageServiceUrl) {
 		if (instance == null) {
-			instance = new EscenicImageProcessor(contentManager, cmServer, escenicUtils, escenicConfig, httpFileServiceClient,imageServiceUrl);
+			instance = new EscenicImageProcessor(escenicUtils, httpFileServiceClient,imageServiceUrl);
 		}
 	}
 
@@ -115,7 +113,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	protected EscenicImage processImage(ContentId contentId, EscenicImage escenicImage, DamEngagementUtils utils, List<EscenicContent> escenicContentList, String sectionId, String action) throws EscenicException {
+    protected EscenicImage processImage(ContentId contentId,
+                                        EscenicImage escenicImage,
+                                        Websection websection,
+                                        String action) throws EscenicException {
 
 		ContentResult imgCr =  escenicUtils.checkAndExtractContentResult(contentId, contentManager);
 
@@ -130,13 +131,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 			String existingEscenicLocation = null;
 			try {
-				existingEscenicLocation = getEscenicIdFromEngagement(utils, contentId);
+				existingEscenicLocation = getEscenicIdFromEngagement(contentId);
 			} catch (CMException e) {
 				throw new RuntimeException("Failed to retreive escenic id from engagement for id: " + contentId);
 			}
 
 			boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
-			List<CloseableHttpResponse> responses = new ArrayList<>();
 
 			Entry escenicImageEntry = null;
 			String existingEscenicId = null;
@@ -152,23 +152,29 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 			}
 
-			CloseableHttpResponse response = processImage(imgCr, escenicImageEntry, existingEscenicLocation,  cmServer, escenicConfig, escenicImage, sectionId);
+			try (CloseableHttpResponse response = processImage(imgCr, escenicImageEntry, existingEscenicLocation, escenicImage, websection)) {
+				EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, imgCr, action);
+				String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
+				String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
+				assignProperties(oneImageBean, escenicImage, escenicId, escenicLocation, contentId, websection);
+				return escenicImage;
+			} catch (IOException e) {
+				throw new EscenicException("An error has ocurred while processing an image: " + e);
+			}
 
-			EngagementDesc engagementDesc = evaluateResponse(contentId, existingEscenicLocation, existingEscenicId, true, response, utils, imgCr, action);
 
-			String escenicId = escenicUtils.getEscenicIdFromEngagement(engagementDesc, existingEscenicId);
-			String escenicLocation = escenicUtils.getEscenicLocationFromEngagement(engagementDesc, existingEscenicLocation);
-			assignProperties(oneImageBean, escenicImage, escenicId, escenicLocation, contentId);
-			return escenicImage;
 		}
 		return null;
 	}
 
-	protected CloseableHttpResponse processImage(ContentResult imgCr, Entry existingImgEntry, String existingEscenicLocation,
-												 PolicyCMServer cmServer, EscenicConfig escenicConfig,
-												 EscenicImage escenicImage, String sectionId) throws FailedToSendContentToEscenicException, EscenicResponseException {
+    protected CloseableHttpResponse processImage(ContentResult imgCr,
+                                                 Entry existingImgEntry,
+                                                 String existingEscenicLocation,
+                                                 EscenicImage escenicImage,
+                                                 Websection websection) throws FailedToSendContentToEscenicException, EscenicResponseException {
+
 		CloseableHttpResponse response = null;
-		String binaryUrl = escenicConfig.getBinaryUrl();
+		String binaryUrl = escenicUtils.getEscenicConfig().getBinaryUrl();
 		if (StringUtils.isEmpty(binaryUrl)) {
 			throw new RuntimeException("Unable to send image to Escenic as binaryUrl is blank");
 		}
@@ -176,7 +182,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		if (imgCr != null) {
 			Object contentBean = escenicUtils.extractContentBean(imgCr);
 			OneImageBean oneImageBean = null;
-			if (contentBean != null && contentBean instanceof OneImageBean) {
+			if (contentBean instanceof OneImageBean) {
 				oneImageBean = (OneImageBean) contentBean;
 			}
 
@@ -190,15 +196,15 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 				ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) imgCr.getContent().getAspectData(ImageEditInfoAspectBean.ASPECT_NAME);
 				String binaryLocation = sendBinaryImage(imgCr, binaryUrl, existingImgEntry, imageEditInfoAspectBean);
-				Entry atomEntry = constructAtomEntryForBinaryImage(oneImageBean, existingImgEntry, imgCr.getContent(), binaryLocation, escenicConfig, imageEditInfoAspectBean);
+				Entry entry = constructAtomEntryForBinaryImage(oneImageBean, imgCr.getContent(), binaryLocation, websection, imageEditInfoAspectBean);
 				if (existingImgEntry != null) {
-					atomEntry = processExistingImage(existingImgEntry, atomEntry);
+					entry = escenicUtils.processExitingContent(existingImgEntry, entry, false);
 				}
-				String xml = escenicUtils.serializeXml(atomEntry);
+				String xml = escenicUtils.serializeXml(entry);
 				if (StringUtils.isNotEmpty(xml) && existingImgEntry != null) {
 					response = escenicUtils.sendUpdatedContentToEscenic(existingEscenicLocation, xml);
 				} else {
-					response = escenicUtils.sendNewContentToEscenic(xml, sectionId);
+					response = escenicUtils.sendNewContentToEscenic(xml, websection);
 				}
 
 			} else {
@@ -210,25 +216,6 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 		}
 		return response;
-	}
-
-	private Entry processExistingImage(Entry existingEntry, Entry entry) {
-		if (existingEntry != null && entry != null) {
-			List<Field> existingFields = escenicUtils.getFieldsForEntry(existingEntry);
-			List<Field> newFields = escenicUtils.getFieldsForEntry(entry);
-
-			existingFields = escenicUtils.generateUpdatedListOfFields(existingFields, newFields);
-			existingEntry.getContent().getPayload().setField(existingFields);
-
-			existingEntry.setControl(entry.getControl());
-			existingEntry.setTitle(entry.getTitle());
-			existingEntry.setLink(escenicUtils.mergeLinks(existingEntry.getLink(), entry.getLink()));
-			//we're resetting the summary to ensure invalid xhtml chars are being escaped
-			escenicUtils.cleanUpSummary(existingEntry);
-			existingEntry.setPublication(escenicUtils.cleanUpPublication(existingEntry.getPublication()));
-			return existingEntry;
-		}
-		return entry;
 	}
 
 	private int getMaxImageWidth() {
@@ -245,13 +232,13 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	}
 
-	protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
-													ContentResult<R> cr,
-													ImageInfoAspectBean imageInfoAspectBean,
-													ImageEditInfoAspectBean imageEditInfoAspectBean,
-													FileService fileService,
-													ContentFileInfo contentFileInfo,
-													Subject subject) throws CMException, IOException {
+    protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
+                                                            ContentResult<R> cr,
+                                                            ImageInfoAspectBean imageInfoAspectBean,
+                                                            ImageEditInfoAspectBean imageEditInfoAspectBean,
+                                                            FileService fileService,
+                                                            ContentFileInfo contentFileInfo,
+                                                            Subject subject) throws CMException, IOException {
 
 		int maxImageWidth = getMaxImageWidth();
 
@@ -332,11 +319,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	private void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
-							   final int newWidth,
-							   final int newHeight,
-							   final float widthRatio,
-							   final float heightRatio) {
+    private void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
+                               final int newWidth,
+                               final int newHeight,
+                               final float widthRatio,
+                               final float heightRatio) {
+
 		imageEditInfo.getCrops().values().forEach(crop -> {
 			Rectangle cropRectangle = crop.getCropRectangle();
 
@@ -368,8 +356,11 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return cleanPath;
 	}
 
-	private String sendBinaryImage(ContentResult imgCr, String binaryUrl,
-								   Entry existingImgEntry, ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
+    private String sendBinaryImage(ContentResult imgCr,
+                                   String binaryUrl,
+                                   Entry existingImgEntry,
+                                   ImageEditInfoAspectBean imageEditInfoAspectBean) throws EscenicResponseException {
+
 		String location = null;
 		if (imgCr != null) {
 			Content cresultContent = imgCr.getContent();
@@ -393,6 +384,8 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 										if (contentFileInfo != null) {
 											if (StringUtils.isNotBlank(contentFileInfo.getFilePath()) && StringUtils.equalsIgnoreCase(contentFileInfo.getFilePath(), imgFilePath)) {
 
+												//todo atm getResizedImageStream not only returns the inputStream,
+												//but also updates the imageInfo aspect and sets the correct normalised crops
 												try (InputStream data = getResizedImageStream(
 														escenicUtils.getHttpClient(),
 														imgCr,
@@ -407,9 +400,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 													if (existingImgEntry == null) {
 														location = sendImage(data, contentFileInfo.getFilePath(), binaryUrl);
 													}
-
 												}
-
 											}
 										}
 									}
@@ -437,7 +428,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 		try {
 			CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);
-			int statusCode = result.getStatusLine().getStatusCode();
+			int statusCode = escenicUtils.getResponseStatusCode(result);
 			if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_NO_CONTENT) {
 
 				Header header = result.getFirstHeader("Location");
@@ -452,7 +443,12 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		}
 	}
 
-	private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean, Entry existingImgEntry, Content cresultContent, String binaryLocation, EscenicConfig escenicConfig, ImageEditInfoAspectBean imageEditInfoAspectBean) {
+    private Entry constructAtomEntryForBinaryImage(OneImageBean oneImageBean,
+                                                   Content cresultContent,
+                                                   String binaryLocation,
+                                                   Websection websection,
+                                                   ImageEditInfoAspectBean imageEditInfoAspectBean) {
+
 		if (oneImageBean != null) {
 			Entry entry = new Entry();
 			Title title = escenicUtils.createTitle(oneImageBean.getName(), "text");
@@ -463,7 +459,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			Control control = escenicUtils.generateControl("no", PUBLISHED_STATE);
 			List<Field> fields = generateImageFields(oneImageBean, cresultContent, binaryLocation, imageEditInfoAspectBean);
 			payload.setField(fields);
-			payload.setModel(escenicConfig.getModelUrl() + EscenicImage.IMAGE_MODEL_CONTENT_TYPE);
+			payload.setModel(escenicUtils.getEscenicModel(websection, EscenicImage.IMAGE_MODEL_CONTENT_TYPE));
 			content.setPayload(payload);
 			content.setType(com.atex.onecms.app.dam.integration.camel.component.escenic.model.Content.TYPE);
 			entry.setContent(content);
@@ -516,15 +512,22 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		return fields;
 	}
 
-	protected void assignProperties(OneImageBean oneImageBean, EscenicImage escenicImage, String escenicId, String escenicLocation, ContentId contentId) {
+    protected void assignProperties(OneImageBean oneImageBean,
+                                    EscenicImage escenicImage,
+                                    String escenicId,
+                                    String escenicLocation,
+                                    ContentId contentId,
+                                    Websection websection) {
+
 		escenicImage.setEscenicId(escenicId);
 		escenicImage.setEscenicLocation(escenicLocation);
 		escenicImage.setOnecmsContentId(contentId);
 		escenicImage.setThumbnailUrl(escenicLocation.replaceAll("escenic/content", "thumbnail/article"));
 		escenicImage.setTitle(escenicUtils.escapeXml(oneImageBean.getName()));
 		escenicImage.setCaption(oneImageBean.getCaption());
-		List<Link> links = escenicUtils.generateLinks(escenicImage);
+		List<Link> links = escenicUtils.generateLinks(escenicImage, websection);
 		escenicImage.setLinks(links);
+		escenicImage.setNoUseWeb(oneImageBean.isNoUseWeb());
 	}
 
 	private JsonObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) throws RuntimeException {
