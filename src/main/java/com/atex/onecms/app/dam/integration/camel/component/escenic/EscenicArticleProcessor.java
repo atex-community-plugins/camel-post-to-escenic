@@ -204,7 +204,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 						try {
 							existingEscenicLocation = getEscenicIdFromEngagement(contentId);
 						} catch (CMException e) {
-							throw new RuntimeException("Failed to process id from engagement : " + contentId + " - " + e);
+							throw new EscenicException("Failed to process id from the engagement for id:  " + IdUtil.toIdString(contentId), e);
 						}
 
 						boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
@@ -221,7 +221,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 								try {
 									escenicImageEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 								} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException e) {
-									throw new RuntimeException("Failed generate escenic image entry : " + e);
+									throw new EscenicException("Failed generate escenic image entry for image: " + IdUtil.toIdString(contentId), e);
 								}
 							}
 						}
@@ -240,7 +240,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 							return escenicImage;
 
 						} catch (EscenicResponseException | IOException e) {
-							LOGGER.log(Level.SEVERE, "Error occurred while processing an image", e);
+                            throw new EscenicException("Error occurred while processing an image: " + IdUtil.toIdString(contentId) , e);
 						}
 					} else {
 						LOGGER.finest("Image with id: " + IdUtil.toIdString(contentId) + " was marked not for web.");
@@ -252,7 +252,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 						try {
 							existingEscenicLocation = getEscenicIdFromEngagement(contentId);
 						} catch (CMException e) {
-							throw new EscenicException("Failed to retrieve existing escenic location from engagement for id: " + contentId);
+							throw new EscenicException("Failed to retrieve existing escenic location from engagement for id: " + IdUtil.toIdString(contentId), e);
 						}
 						boolean isUpdate = StringUtils.isNotEmpty(existingEscenicLocation);
 						EscenicGallery escenicGallery = new EscenicGallery();
@@ -268,7 +268,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 								try {
 									existingGalleryEntry = escenicUtils.generateExistingEscenicEntry(existingEscenicLocation);
 								} catch (FailedToRetrieveEscenicContentException | FailedToDeserializeContentException e) {
-									e.printStackTrace();
+                                    throw new EscenicException("Failed to generate existing escenic entry for id: " + IdUtil.toIdString(contentId), e);
 								}
 							}
 						}
@@ -290,7 +290,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 											if (escenicImage != null) {
 												collectionEscenicItems.add(escenicImage);
 											} else {
-												LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(id));
+                                                throw new EscenicException("Something went wrong while processing an image with id: " + IdUtil.toIdString(contentId));
 											}
 										}
 										LOGGER.finest("Image with id: " + IdUtil.toIdString(id) + " was marked not for web.");
@@ -312,7 +312,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
                             EscenicGalleryProcessor.getInstance().assignProperties(collectionAspectBean, escenicGallery, escenicId, escenicLocation, contentId, websection);
                             return escenicGallery;
                         } catch (IOException e) {
-                            LOGGER.log(Level.SEVERE, "Error occurred while processing a gallery", e);
+                            throw new EscenicException("Error occurred while processing a gallery: " + IdUtil.toIdString(contentId), e);
                         }
                     }
 				} else if (contentData instanceof ExternalReferenceVideoBean) {
@@ -328,7 +328,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 			}
 		} else {
 			//content result blank or failed
-			LOGGER.severe("Failed to retrieve content result");
+            throw new EscenicException("Failed to retrieve content result " + IdUtil.toIdString(contentId) + ". Unable to proceed");
+
 		}
 
 		return null;

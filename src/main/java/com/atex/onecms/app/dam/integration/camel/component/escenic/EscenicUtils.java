@@ -1212,6 +1212,9 @@ public class EscenicUtils {
 	public boolean isTopElement(ContentId contentId, List<EscenicContent> escenicContentList ) {
 		/**
 		 * This is to prevent pushing the image twice if it's both in body & set as top element as well
+         * note - this method marks the image to be both topElement and Inline which allows to only have one
+         * instance of that image in the content list that will be used to correctly process top element
+         * and parse and process all inline instances
 		 */
 		if (contentId != null) {
 			if (escenicContentList != null) {
@@ -1236,6 +1239,15 @@ public class EscenicUtils {
 									return true;
 								}
 							}
+
+							if (escenicContent instanceof EscenicContentReference) {
+                                EscenicContentReference video = (EscenicContentReference) escenicContent;
+
+                                if (video != null) {
+                                    video.setInlineElement(true);
+                                    return true;
+                                }
+                            }
 						}
 					}
 				}

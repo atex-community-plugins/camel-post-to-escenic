@@ -1,0 +1,7 @@
+# Step 2 - Defining a Write Mapping (that is registering a Content Type on the Write Composer).
+id:com.atex.data.WritePipeline.Config
+major:3
+inputtemplate:com.polopoly.data.WriteMappings.config
+component:model:modelType:com.polopoly.data.WriteMappings.config
+component:composer:atex.onecms.external.reference:atex.onecms.customtype.writecomposer
+component:composer:atex.onecms.external.video.reference:atex.onecms.customtype.writecomposer

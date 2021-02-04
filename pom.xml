@@ -11,7 +11,7 @@
   <parent>
     <groupId>com.polopoly</groupId>
     <artifactId>public</artifactId>
-    <version>10.18.3</version>
+    <version>10.20.0</version>
     <relativePath />
   </parent>
 
@@ -67,7 +67,7 @@
   </scm>
 
   <properties>
-    <polopoly.version>10.18.3-fp2</polopoly.version>
+    <polopoly.version>10.20.0</polopoly.version>
     <camel.version>2.24.2</camel.version>
     <spring.version>5.1.6.RELEASE</spring.version>
     <desk.version>2.15.0-SNAPSHOT</desk.version>
@@ -247,6 +247,23 @@
                 <!--</files> -->
               </contentDataFileResources>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.polopoly.extensions</groupId>
+        <artifactId>p-maven-plugin</artifactId>
+        <version>${polopoly.version}</version>
+        <executions>
+          <execution>
+              <id>pack-content</id>
+                <goals>
+                    <goal>process-aspect-annotation</goal>
+                    <!--goal>dot-content-to-xml</goal-->
+                    <goal>pack</goal>
+                </goals>
+                <phase>package</phase>
           </execution>
         </executions>
       </plugin>

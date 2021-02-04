@@ -187,17 +187,12 @@ public class EscenicContentProcessor {
 						if (sitePolicy != null) {
 							String escenicId = null;
 							String publicationName = null;
+                            escenicId = sitePolicy.getComponent("escenicId", "value");
+                            publicationName = sitePolicy.getComponent("publicationKey", "value");
 
-							try {
-								escenicId = sitePolicy.getComponent("escenicId", "value");
-							} catch (CMException e) {
-								LOGGER.severe("Failed to retrieve escenicId component for sec parent: " + securityParentId);
-							}
-							try {
-								publicationName = sitePolicy.getComponent("publicationKey", "value");
-							} catch (CMException e) {
-								LOGGER.severe("Failed to retrieve publicationKey component for sec parent: " + securityParentId);
-							}
+                            if (escenicId == null || publicationName == null) {
+                                throw new FailedToProcessSectionIdException("Failed to find site information (site id or publication name). Unable to proceed.");
+                            }
 
 							return new Websection(escenicId, publicationName, securityParentId);
 						}

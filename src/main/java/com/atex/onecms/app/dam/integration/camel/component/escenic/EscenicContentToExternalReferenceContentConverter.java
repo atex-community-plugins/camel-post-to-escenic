@@ -136,31 +136,21 @@ public class EscenicContentToExternalReferenceContentConverter {
 	}
 
 
-	private ContentWrite createContentWrite(Object externalReference, FilesAspectBean filesAspectBean, ImageInfoAspectBean imageInfoAspectBean) throws EscenicException {
-		if (externalReference instanceof ExternalReferenceVideoBean) {
-			ExternalReferenceVideoBean externalReferenceVideoBean = (ExternalReferenceVideoBean) externalReference;
-			ContentWriteBuilder cwb = new ContentWriteBuilder()
-				.type(ExternalReferenceVideoBean.ASPECT_NAME)
-				.mainAspectData(externalReferenceVideoBean);
-			if (filesAspectBean != null) {
-				cwb.aspect(FilesAspectBean.ASPECT_NAME, filesAspectBean);
-			}
+	private ContentWrite createContentWrite(Object externalReference, FilesAspectBean filesAspectBean, ImageInfoAspectBean imageInfoAspectBean) {
+        ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) externalReference;
+        ContentWriteBuilder cwb = new ContentWriteBuilder()
+            .type(externalReferenceBean.get_type())
+            .mainAspectData(externalReferenceBean);
 
-			if (imageInfoAspectBean != null) {
-				cwb.aspect(ImageInfoAspectBean.ASPECT_NAME, imageInfoAspectBean);
-			}
+        if (filesAspectBean != null) {
+            cwb.aspect(FilesAspectBean.ASPECT_NAME, filesAspectBean);
+        }
 
-			return cwb.buildCreate();
+        if (imageInfoAspectBean != null) {
+            cwb.aspect(ImageInfoAspectBean.ASPECT_NAME, imageInfoAspectBean);
+        }
 
-		} else if (externalReference instanceof ExternalReferenceBean) {
-			ExternalReferenceBean externalReferenceBean = (ExternalReferenceBean) externalReference;
-			return new ContentWriteBuilder()
-				.type(ExternalReferenceBean.ASPECT_NAME)
-				.mainAspectData(externalReferenceBean)
-				.buildCreate();
-		}
-
-		throw new EscenicException("Attempt to create content write for external reference object failed");
+        return cwb.buildCreate();
 	}
 
     private void assignProperties(ExternalReferenceBean externalReferenceBean,
