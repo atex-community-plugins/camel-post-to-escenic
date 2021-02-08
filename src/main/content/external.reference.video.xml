@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template-definition version="1.0" xmlns="http://www.polopoly.com/polopoly/cm/app/xml">
+  <input-template name="onecms.it.atex.onecms.external.video.reference">
+    <policy>com.polopoly.onecms.OneCMSContentProxyPolicy</policy>
+
+    <output-templates mode="www">
+      <id>one.Video.ot</id>
+    </output-templates>
+
+    <output-templates mode="embed">
+      <id>one.Video.embed.ot</id>
+    </output-templates>
+
+  </input-template>
+</template-definition>
