@@ -112,12 +112,12 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 								//Similar process applies to escenic video references (separate bean was required for thumbnails)
 								case EscenicArticle.ARTICLE_TYPE:
 								case EscenicVideo.VIDEO_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                    if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
                                         if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
                                             EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed, websection);
                                             inlineContentList.add(escenicContentReference);
                                         }
-									}
+                                    }
 									break;
 							}
 						}
