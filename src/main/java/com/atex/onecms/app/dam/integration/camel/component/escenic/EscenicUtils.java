@@ -1240,7 +1240,7 @@ public class EscenicUtils {
 								}
 							}
 
-							if (escenicContent instanceof EscenicContentReference) {
+                            if (escenicContent instanceof EscenicContentReference) {
                                 EscenicContentReference video = (EscenicContentReference) escenicContent;
 
                                 if (video != null) {
@@ -1248,10 +1248,10 @@ public class EscenicUtils {
                                     return true;
                                 }
                             }
-						}
-					}
-				}
-			}
+                        }
+                    }
+                }
+            }
 		}
 		return false;
 	}

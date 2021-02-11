@@ -49,85 +49,85 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
                                            Websection websection,
                                            String action) throws IOException, URISyntaxException, EscenicException {
 
-		LOGGER.finest("Processing smart embeds");
-		List<EscenicContent> inlineContentList = new ArrayList<>();
-		if (cr.getStatus().isSuccess()) {
-			List<CustomEmbedParser.SmartEmbed> embeds = EscenicSocialEmbedProcessor.getInstance().processEmbeds(article.getBody().getText());
-			Content c = cr.getContent();
-			if (c != null) {
-				for (CustomEmbedParser.SmartEmbed embed : embeds) {
-					if (embed != null) {
-						if (StringUtils.isNotEmpty(embed.getObjType())) {
-							switch (embed.getObjType()) {
-								case EscenicImage.IMAGE_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
-										if (embed.getContentId() != null) {
-											//extract here
-											ContentResult item = escenicUtils.checkAndExtractContentResult(embed.getContentId(), contentManager);
-											if (item != null && item.getStatus().isSuccess()) {
-												Object bean = escenicUtils.extractContentBean(item);
-												if (bean != null && bean instanceof OneImageBean) {
-													if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
-														EscenicImage escenicImage = new EscenicImage();
-														escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, websection, action);
-														if (escenicImage != null) {
-															inlineContentList.add(escenicImage);
-														} else {
-															LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
-														}
-													}
-												}
-											}
-										} else {
-											LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
-										}
-									}
+        LOGGER.finest("Processing smart embeds");
+        List<EscenicContent> inlineContentList = new ArrayList<>();
+        if (cr.getStatus().isSuccess()) {
+            List<CustomEmbedParser.SmartEmbed> embeds = EscenicSocialEmbedProcessor.getInstance().processEmbeds(article.getBody().getText());
+            Content c = cr.getContent();
+            if (c != null) {
+                for (CustomEmbedParser.SmartEmbed embed : embeds) {
+                    if (embed != null) {
+                        if (StringUtils.isNotEmpty(embed.getObjType())) {
+                            switch (embed.getObjType()) {
+                                case EscenicImage.IMAGE_TYPE:
+                                    if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                        if (embed.getContentId() != null) {
+                                            //extract here
+                                            ContentResult item = escenicUtils.checkAndExtractContentResult(embed.getContentId(), contentManager);
+                                            if (item != null && item.getStatus().isSuccess()) {
+                                                Object bean = escenicUtils.extractContentBean(item);
+                                                if (bean != null && bean instanceof OneImageBean) {
+                                                    if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
+                                                        EscenicImage escenicImage = new EscenicImage();
+                                                        escenicImage = EscenicImageProcessor.getInstance().processImage(embed.getContentId(), escenicImage, websection, action);
+                                                        if (escenicImage != null) {
+                                                            inlineContentList.add(escenicImage);
+                                                        } else {
+                                                            LOGGER.severe("Something went wrong while processing an image with id: " + IdUtil.toIdString(embed.getContentId()));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            LOGGER.severe("Unable to process an inline image as the onecms id was not found in embeded text");
+                                        }
+                                    }
 
-									break;
+                                    break;
 
-								case EscenicGallery.GALLERY_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
-										if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
-											if (embed.getContentId() != null) {
-												EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), websection, action);
-												inlineContentList.add(escenicGallery);
-											}
-										}
-									}
+                                case EscenicGallery.GALLERY_TYPE:
+                                    if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                        if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
+                                            if (embed.getContentId() != null) {
+                                                EscenicGallery escenicGallery = EscenicGalleryProcessor.getInstance().processGallery(embed.getContentId(), websection, action);
+                                                inlineContentList.add(escenicGallery);
+                                            }
+                                        }
+                                    }
 
-									break;
+                                    break;
 
-								case EscenicEmbed.SOCIAL_EMBED_TYPE:
+                                case EscenicEmbed.SOCIAL_EMBED_TYPE:
 
-									// special case - if there are duplicates parsed from article body we'll only create one content in escenic
-									// and use the ids for all occurrences
-									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
-										EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, websection);
-										inlineContentList.add(escenicEmbed);
-									}
-									break;
+                                    // special case - if there are duplicates parsed from article body we'll only create one content in escenic
+                                    // and use the ids for all occurrences
+                                    if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                        EscenicEmbed escenicEmbed = EscenicSocialEmbedProcessor.getInstance().processSocialEmbed(embed, websection);
+                                        inlineContentList.add(escenicEmbed);
+                                    }
+                                    break;
 
-								//workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.
-								//once we load them individually by onecms id, we can pick up their actual type in escenic for further processing
-								//Similar process applies to escenic video references (separate bean was required for thumbnails)
-								case EscenicArticle.ARTICLE_TYPE:
-								case EscenicVideo.VIDEO_TYPE:
-									if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
+                                //workaround for smartpase plugin - we're going to pick up all externalReference beans as embeds of data-onecms-type=article type.
+                                //once we load them individually by onecms id, we can pick up their actual type in escenic for further processing
+                                //Similar process applies to escenic video references (separate bean was required for thumbnails)
+                                case EscenicArticle.ARTICLE_TYPE:
+                                case EscenicVideo.VIDEO_TYPE:
+                                    if (!escenicUtils.isAlreadyProcessed(inlineContentList, embed)) {
                                         if (!escenicUtils.isTopElement(embed.getContentId(), escenicContentList)) {
                                             EscenicContentReference escenicContentReference = EscenicRelatedContentProcessor.getInstance().process(embed, websection);
                                             inlineContentList.add(escenicContentReference);
                                         }
-									}
-									break;
-							}
-						}
-					}
-				}
-			}
-		}
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-		return inlineContentList;
-	}
+        return inlineContentList;
+    }
 
     protected CloseableHttpResponse processEmbed(CustomEmbedParser.SmartEmbed embed,
                                                  EscenicEmbed escenicEmbed,
