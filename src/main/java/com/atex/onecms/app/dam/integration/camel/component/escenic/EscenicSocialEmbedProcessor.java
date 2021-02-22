@@ -1,5 +1,10 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
+import java.util.logging.Logger;
+
 import com.atex.onecms.app.dam.engagement.EngagementDesc;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicResponseException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.FailedToExtractLocationException;
@@ -8,18 +13,20 @@ import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Entry;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Link;
 import com.atex.onecms.app.dam.standard.aspects.DamEmbedAspectBean;
-import com.atex.onecms.content.*;
+import com.atex.onecms.content.ContentId;
+import com.atex.onecms.content.ContentResult;
+import com.atex.onecms.content.ContentVersionId;
+import com.atex.onecms.content.ContentWrite;
+import com.atex.onecms.content.ContentWriteBuilder;
+import com.atex.onecms.content.IdUtil;
+import com.atex.onecms.content.Subject;
+import com.atex.onecms.content.SubjectUtil;
 import com.polopoly.cm.client.CMException;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
-import java.io.IOException;
-import java.util.List;
-import java.util.UUID;
-import java.util.logging.Logger;
 
 public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
@@ -135,7 +142,8 @@ public class EscenicSocialEmbedProcessor extends EscenicSmartEmbedProcessor {
 
 	/**
 	 * responsible for creating dummy onecms Embeds for the purpose of storing engagements
-	 * @param escenicEmbed
+	 * @param escenicEmbed The embed string to process
+	 * @return ContentResult The OneCMS content for the created embed
 	 */
 	protected ContentResult createOnecmsEmbed(EscenicEmbed escenicEmbed) throws RuntimeException {
 		DamEmbedAspectBean embedAspectBean = new DamEmbedAspectBean();

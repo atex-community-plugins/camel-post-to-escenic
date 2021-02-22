@@ -1,15 +1,5 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
-import com.atex.onecms.content.ContentId;
-import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import org.apache.commons.lang.StringUtils;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Attribute;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -18,14 +8,22 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
+import com.atex.onecms.content.ContentId;
 import com.atex.onecms.content.IdUtil;
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import org.apache.commons.lang.StringUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Attribute;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
 
-/**
+	/**
 	 * Parse a body text and extract smart embeds & social embeds
 	 *
-	 * @author mnova
-	 * @author2 jakub
+	 * @author jakub
 	 *
 	 */
 	public class CustomEmbedParser {
