@@ -21,7 +21,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
 
 	/**
-	 * Parse a body text and extract smart embeds & social embeds
+	 * Parse a body text and extract smart embeds and social embeds
 	 *
 	 * @author jakub
 	 *
