@@ -97,12 +97,18 @@
     </dependency>
 
     <dependency>
+      <groupId>com.atex.gong</groupId>
+      <artifactId>onecms-common-content</artifactId>
+      <version>${desk.version}</version>
+      <classifier>contentdata</classifier>
+    </dependency>
+
+    <dependency>
       <groupId>com.atex</groupId>
       <artifactId>module-desk-onecms</artifactId>
       <version>${desk.version}</version>
       <scope>provided</scope>
     </dependency>
-
 
     <dependency>
       <groupId>org.apache.camel</groupId>
