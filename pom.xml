@@ -211,6 +211,23 @@
         </executions>
       </plugin>
 
+      <plugin>
+        <groupId>com.polopoly.extensions</groupId>
+        <artifactId>p-maven-plugin</artifactId>
+        <version>${polopoly.version}</version>
+        <executions>
+          <execution>
+            <id>pack-content</id>
+            <goals>
+              <goal>process-aspect-annotation</goal>
+              <!--goal>dot-content-to-xml</goal-->
+              <goal>pack</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- this is needed to import the variants xml -->
       <plugin>
         <groupId>com.polopoly.extensions</groupId>
