@@ -220,23 +220,6 @@
             <id>pack-content</id>
             <goals>
               <goal>process-aspect-annotation</goal>
-              <!--goal>dot-content-to-xml</goal-->
-              <goal>pack</goal>
-            </goals>
-            <phase>package</phase>
-          </execution>
-        </executions>
-      </plugin>
-
-      <!-- this is needed to import the variants xml -->
-      <plugin>
-        <groupId>com.polopoly.extensions</groupId>
-        <artifactId>p-maven-plugin</artifactId>
-        <version>${polopoly.version}</version>
-        <executions>
-          <execution>
-            <id>pack-content</id>
-            <goals>
               <goal>dot-content-to-xml</goal>
               <goal>pack</goal>
             </goals>
@@ -261,15 +244,15 @@
                     <include>**</include>
                   </includes>
                 </files>
-                <!-- Remove this source directory if not used -->
-                <!--<files> -->
-                <!--<directory>${project.build.directory}/generated-contentfiles</directory> -->
-                <!--<includes> -->
-                <!--<include>**</include> -->
-                <!--</includes> -->
-                <!--</files> -->
+                <files>
+                  <directory>${project.build.directory}/generated-content</directory>
+                  <includes>
+                    <include>**</include>
+                  </includes>
+                </files>
               </contentDataFileResources>
             </configuration>
+
           </execution>
         </executions>
       </plugin>
