@@ -1,0 +1,19 @@
+{
+  "pixelations": [],
+  "rotation": 0,
+  "flipHorizontal": false,
+  "flipVertical": false,
+  "crops": {
+    "Print Crop": {
+      "imageFormat": {
+        "aspectRatio": {
+          "width": 2578,
+          "height": 2159
+        },
+        "label": "",
+        "name": "Print Crop",
+        "description": ""
+      }
+    }
+  }
+}

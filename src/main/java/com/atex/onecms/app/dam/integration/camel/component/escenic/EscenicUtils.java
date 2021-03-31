@@ -113,6 +113,7 @@ public class EscenicUtils {
 	protected static final String ATOM_APP_ENTRY_TYPE = APP_ATOM_XML + "; type=entry";
 	protected static final String RELATED = "related";
 	protected static final String PUBLISHED_STATE = "published";
+	protected static final int MAX_CONNECTIONS = 5;
 	protected EscenicConfig escenicConfig;
 	protected ContentManager contentManager;
 	protected DamEngagementUtils engagementUtils;
@@ -123,14 +124,14 @@ public class EscenicUtils {
 	}
 
 	protected CloseableHttpClient httpClient;
-	private static final int TIMEOUT = 60 * 1000;
-	private static final RequestConfig config = RequestConfig.custom()
-		.setConnectTimeout(TIMEOUT)
-		.setConnectionRequestTimeout(TIMEOUT)
-		.setSocketTimeout(TIMEOUT).build();
 
 
 	public EscenicUtils(EscenicConfig escenicConfig, ContentManager contentManager, PolicyCMServer cmServer) {
+		final RequestConfig config = RequestConfig.custom()
+				.setConnectTimeout(escenicConfig.getTimeout())
+				.setConnectionRequestTimeout(escenicConfig.getTimeout())
+				.setSocketTimeout(escenicConfig.getTimeout()).build();
+
 		this.escenicConfig = escenicConfig;
 		this.contentManager = contentManager;
 		this.cmServer = cmServer;
@@ -139,8 +140,16 @@ public class EscenicUtils {
 			.disableCookieManagement()
 			.disableContentCompression()
 			.setDefaultRequestConfig(config)
+			.setMaxConnPerRoute(MAX_CONNECTIONS)
+			.setMaxConnTotal(MAX_CONNECTIONS)
 			.build();
 		LOGGER.setLevel(Level.FINEST);
+	}
+	/**
+	 * Test interface only
+	 */
+	protected EscenicUtils(){
+
 	}
 
 	public String retrieveEscenicItem(String location) throws FailedToRetrieveEscenicContentException {
@@ -225,7 +234,7 @@ public class EscenicUtils {
 
 	protected String processAndReplaceOvermatterAndNoteTags(String structuredText) {
 		structuredText = replaceLineSeparatorWithSpace(structuredText);
-		return processPseriesTagsToHtml(structuredText, false);
+		return processPseriesTagsToHtml(structuredText);
 	}
 
 	protected org.jsoup.nodes.Document extractOvermatterAndNotesTags(String html) {
@@ -233,15 +242,17 @@ public class EscenicUtils {
 
 			//process overmatter span tags
 			for (final Element element : doc.select("span.x-atex-overmatter")) {
-				String text = element.text();
+
 				Element parent = element.parent();
 				if (parent != null) {
-					parent.append(text);
+					for(org.jsoup.nodes.Node node : element.childNodesCopy()){
+						parent.appendChild(node);
+					}
 				}
 				element.remove();
 			}
 
-			//proces script tags (atex notes)
+			//process script tags (atex notes)
 			for (final Element element : doc.select("script")) {
 				if (element.hasAttr("type") && StringUtils.equalsIgnoreCase(element.attr("type"), "text/atex-note")) {
 					element.remove();
@@ -251,15 +262,11 @@ public class EscenicUtils {
 			return doc;
 	}
 
-	protected String processPseriesTagsToHtml(final String html, final boolean disablePrettyPrint) {
+	protected String processPseriesTagsToHtml(final String html) {
 		final org.jsoup.nodes.Document doc = extractOvermatterAndNotesTags(html);
 
-		if (disablePrettyPrint) {
-			doc.outputSettings().escapeMode(Entities.EscapeMode.base);
-			doc.outputSettings().prettyPrint(false);
-		} else {
 			doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-		}
+			doc.outputSettings().prettyPrint(false);
 
 		return doc.body().html();
 	}
