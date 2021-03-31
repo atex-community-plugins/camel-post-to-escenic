@@ -386,22 +386,26 @@ public class EscenicUtils {
 		request.setHeader(generateContentTypeHeader(APP_ATOM_XML));
 
 		if (LOGGER.isLoggable(Level.FINEST)) {
-			LOGGER.finest("Sending the following xml to escenic:\n" + xmlContent);
+			LOGGER.finest("Sending the following xml to " + url + ":\n" + xmlContent);
 		}
 
 		try (CloseableHttpResponse result = httpClient.execute(request);){
-			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
+			logXmlContentIfFailure(result, xmlContent, url);
 			return result;
 		} catch (Exception e) {
-			throw new FailedToSendContentToEscenicException("Failed to send new content to escenic: " + e);
+			throw new FailedToSendContentToEscenicException("Failed to send new content to " + url + ": " + e);
 		} finally {
 			request.releaseConnection();
 		}
 	}
 
-	protected void logXmlContentIfFailure(int statusCode, String xmlContent) {
+	protected void logXmlContentIfFailure(CloseableHttpResponse result, String xmlContent, String url) {
+		int statusCode = result.getStatusLine().getStatusCode();
+
 		if (statusCode != HttpStatus.SC_CREATED && statusCode != HttpStatus.SC_OK && statusCode !=HttpStatus.SC_NO_CONTENT) {
-			LOGGER.severe("Failed to send the following xml:\n" + xmlContent);
+			LOGGER.severe("Failed to POST the following to " + url + ":\n" + xmlContent);
+			LOGGER.severe("Failure code is : " + statusCode);
+			LOGGER.severe("Failure reason is : " + result.getStatusLine().getReasonPhrase());
 		}
 	}
 
@@ -414,14 +418,14 @@ public class EscenicUtils {
 		request.setHeader(HttpHeaders.IF_MATCH, "*");
 
 		if (LOGGER.isLoggable(Level.FINEST)) {
-			LOGGER.finest("Sending the following xml to UPDATE content in escenic:\n" + xmlContent);
+			LOGGER.finest("Posting the following to " + url + ":\n" + xmlContent);
 		}
 
 		try (CloseableHttpResponse result = httpClient.execute(request);){
-			logXmlContentIfFailure(result.getStatusLine().getStatusCode(), xmlContent);
+			logXmlContentIfFailure(result, xmlContent, url);
 			return result;
 		} catch (Exception e) {
-			throw new FailedToSendContentToEscenicException("Failed to send an update to escenic due to: " + e);
+			throw new FailedToSendContentToEscenicException("Failed to send an update to " + url + " due to: " + e);
 		} finally {
 			request.releaseConnection();
 		}
