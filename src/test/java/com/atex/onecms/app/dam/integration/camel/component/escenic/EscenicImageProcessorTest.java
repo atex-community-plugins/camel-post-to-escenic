@@ -5,20 +5,14 @@ import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.files.FileService;
 import com.atex.onecms.image.*;
-import com.atex.plugins.layout.LayoutServerConfigurationBean;
 import com.google.gson.Gson;
 import com.polopoly.cm.client.CMException;
-import com.polopoly.cm.client.HttpFileServiceClient;
 import org.apache.commons.io.IOUtils;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.json.HTTP;
 import org.junit.*;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.mockserver.client.MockServerClient;
-import org.mockserver.netty.MockServer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,7 +65,7 @@ public class EscenicImageProcessorTest {
         doCallRealMethod().when(mockProcessor).setEscenicUtils(any());
         doCallRealMethod().when(mockProcessor).setEscenicConfig(any());
         doCallRealMethod().when(mockProcessor).setImageServiceUrl(any());
-        doCallRealMethod().when(mockProcessor).normalizeCrop(any(), anyInt(),anyInt(), anyFloat(), anyFloat());
+        doCallRealMethod().when(mockProcessor).normalizeCrop(any(), anyInt(), anyInt(), anyFloat(), anyFloat());
 
         mockProcessor.setEscenicUtils(eu);
         mockProcessor.setEscenicConfig(escenicConfig);
@@ -87,7 +81,7 @@ public class EscenicImageProcessorTest {
         int failure = 0;
 
         // loop to make sure http connections are being released on success
-        for (int i = 0 ; i < EscenicUtils.MAX_CONNECTIONS+1 ; i++) {
+        for (int i = 0; i < EscenicUtils.MAX_CONNECTIONS + 1; i++) {
 
             try (InputStream data = mockProcessor.getResizedImageStream(eu.getHttpClient(),
                     cr,
@@ -95,17 +89,16 @@ public class EscenicImageProcessorTest {
                     imageEditInfoAspectBean,
                     fileService,
                     contentFileInfo,
-                    subject)){
+                    subject)) {
                 success++;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 failure++;
                 System.out.println(e);
             }
-         }
+        }
         // all http requests should succeed, 'success' should be MAX_CONNECTIONS+1
-        assertEquals(EscenicUtils.MAX_CONNECTIONS+1,success);
-        assertEquals(0,failure);
+        assertEquals(EscenicUtils.MAX_CONNECTIONS + 1, success);
+        assertEquals(0, failure);
 
 
         // Test 2 - should time out
@@ -115,7 +108,7 @@ public class EscenicImageProcessorTest {
         failure = 0;
 
         // loop to make sure http connections are being released on failure
-        for (int i = 0 ; i < EscenicUtils.MAX_CONNECTIONS+1 ; i++) {
+        for (int i = 0; i < EscenicUtils.MAX_CONNECTIONS + 1; i++) {
 
             try (InputStream data = mockProcessor.getResizedImageStream(eu.getHttpClient(),
                     cr,
@@ -123,17 +116,16 @@ public class EscenicImageProcessorTest {
                     imageEditInfoAspectBean,
                     fileService,
                     contentFileInfo,
-                    subject)){
+                    subject)) {
                 success++;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 failure++;
                 System.out.println(e);
             }
         }
         // all http requests should time out, 'success' should be 0
         assertEquals(0, success);
-        assertEquals(EscenicUtils.MAX_CONNECTIONS+1,failure);
+        assertEquals(EscenicUtils.MAX_CONNECTIONS + 1, failure);
 
 
     }
