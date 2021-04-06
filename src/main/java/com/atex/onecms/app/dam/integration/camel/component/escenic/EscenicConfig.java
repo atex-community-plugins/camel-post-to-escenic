@@ -21,6 +21,7 @@ public class EscenicConfig {
 	private String sectionListPassword;
 	private String sectionListUrl;
 	private String escenicTopLevelSearchUrl;
+	private int timeout = 60*1000;
 
 	public String getEscenicTopLevelSearchUrl() {
 		return escenicTopLevelSearchUrl;
@@ -29,6 +30,8 @@ public class EscenicConfig {
 	public void setEscenicTopLevelSearchUrl(String escenicTopLevelSearchUrl) {
 		this.escenicTopLevelSearchUrl = escenicTopLevelSearchUrl;
 	}
+
+
 
 	public String getContentUrl() {
 		return contentUrl;
@@ -141,6 +144,10 @@ public class EscenicConfig {
 	public void setModelUrl(String modelUrl) {
 		this.modelUrl = modelUrl;
 	}
+
+	public int getTimeout() {return timeout;}
+
+	public void setTimeout(int timeout) {this.timeout = timeout;}
 }
 
 

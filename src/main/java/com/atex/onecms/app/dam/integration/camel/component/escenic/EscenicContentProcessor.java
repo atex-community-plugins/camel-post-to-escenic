@@ -105,6 +105,14 @@ public class EscenicContentProcessor {
 		}
 	}
 
+	public void setEscenicUtils(EscenicUtils escenicUtils) {
+		this.escenicUtils = escenicUtils;
+	}
+
+	public void setEscenicConfig(EscenicConfig escenicConfig) {
+		this.escenicConfig = escenicConfig;
+	}
+
 	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException {
 		LOGGER.info("Processing content id: " + IdUtil.toIdString(contentId));
 		Object contentBean = escenicUtils.extractContentBean(contentResult);

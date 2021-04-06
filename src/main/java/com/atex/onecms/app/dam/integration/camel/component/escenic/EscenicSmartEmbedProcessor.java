@@ -29,7 +29,10 @@ public class EscenicSmartEmbedProcessor extends EscenicContentProcessor {
 	public EscenicSmartEmbedProcessor( EscenicUtils escenicUtils) {
 		super(escenicUtils);
 	}
-
+    /**
+     * Test interface only
+     */
+    public EscenicSmartEmbedProcessor(){};
 	public synchronized static EscenicSmartEmbedProcessor getInstance() {
 		if (instance == null) {
 			throw new RuntimeException("EscenicContentProcessor not initialized");

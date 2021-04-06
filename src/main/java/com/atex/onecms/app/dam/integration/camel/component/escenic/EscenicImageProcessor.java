@@ -55,6 +55,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 
 public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
@@ -77,6 +78,9 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		this.httpFileServiceClient = httpFileServiceClient;
 		this.imageServiceUrl = imageServiceUrl;
 		this.cropsMapping = initCrops();
+	}
+
+	public EscenicImageProcessor() {
 	}
 
 	public static EscenicImageProcessor getInstance() {
@@ -111,6 +115,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to process crops mapping from configuration.");
 		}
+	}
+
+	public void setImageServiceUrl(String imageServiceUrl) {
+		this.imageServiceUrl = imageServiceUrl;
 	}
 
     protected EscenicImage processImage(ContentId contentId,
@@ -232,13 +240,13 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 
 	}
 
-    protected <R> BufferedInputStream getResizedImageStream(final HttpClient httpClient,
+    protected <R> BufferedInputStream getResizedImageStream(final CloseableHttpClient httpClient,
                                                             ContentResult<R> cr,
                                                             ImageInfoAspectBean imageInfoAspectBean,
                                                             ImageEditInfoAspectBean imageEditInfoAspectBean,
                                                             FileService fileService,
                                                             ContentFileInfo contentFileInfo,
-                                                            Subject subject) throws CMException, IOException {
+                                                            Subject subject) throws CMException, IOException, URISyntaxException {
 
 		int maxImageWidth = getMaxImageWidth();
 
@@ -260,18 +268,14 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				rotation, new java.awt.Dimension(imageInfoAspectBean.getWidth(), imageInfoAspectBean.getHeight()),
 				flipVertical, flipHorizontal);
 
-		final ImageServiceConfiguration imageServiceConfiguration = new ImageServiceConfigurationProvider(cmServer).getImageServiceConfiguration();
 
-		// By default the image service will also sample the quality to .75 so, bump it to 1.0 so we do not double sample
-		final ImageServiceUrlBuilder urlBuilder = new ImageServiceUrlBuilder(cr, imageServiceConfiguration.getSecret())
-			.width(maxImageWidth)
-			.quality(IMAGE_QUALITY);
+		CloseableHttpResponse httpResponse = null;
 
 		try {
-			final URL url = new URL(imageServiceUrl + urlBuilder.buildUrl());
+			final URL url = new URL(imageServiceUrl + getImageServiceUrl(cr, maxImageWidth));
 			LOGGER.info("Resizing image " + contentFileInfo + ", from " + url);
 
-			final HttpResponse httpResponse = httpClient.execute(new HttpGet(url.toURI()));
+			httpResponse = httpClient.execute(new HttpGet(url.toURI()));
 
 			final int statusCode = httpResponse.getStatusLine().getStatusCode();
 			LOGGER.info("Resizing image from " + url + " status code: " + statusCode);
@@ -298,45 +302,47 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				normalizeCrop(imageEditInfoAspectBean, newWidth, newHeight, widthRatio, heightRatio);
 			}
 
-			// ADM-375
-			// when we resize an image we should also normalize the image crop
-			// inside collections.
-
-//			Optional.ofNullable(collectionAspectBean)
-//				.map(CollectionAspect::getCollections)
-//				.map(Collection::stream)
-//				.orElse(Stream.empty())
-//				.filter(c -> c.getCrop() != null)
-//				.map(com.atex.onecms.app.dam.collection.aspect.Collection::getCrop)
-//				.forEach(i -> normalizeCrop(i, newWidth, newHeight, widthRatio, heightRatio));
-
 			imageInfoAspectBean.setHeight(newHeight);
 			imageInfoAspectBean.setWidth(newWidth);
-//
+
 			return new BufferedInputStream(httpResponse.getEntity().getContent());
-		} catch (URISyntaxException e) {
-			throw new IOException(e);
+		} catch (Exception e) {
+			if (httpResponse != null){
+				httpResponse.close();
+			}
+			throw e;
 		}
 	}
 
-    private void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
+	protected String getImageServiceUrl(ContentResult cr, int maxImageWidth) throws CMException {
+
+		final ImageServiceConfiguration imageServiceConfiguration = new ImageServiceConfigurationProvider(cmServer).getImageServiceConfiguration();
+
+		// By default the image service will also sample the quality to .75 so, bump it to 1.0 so we do not double sample
+		final ImageServiceUrlBuilder urlBuilder = new ImageServiceUrlBuilder(cr, imageServiceConfiguration.getSecret())
+			.width(maxImageWidth)
+			.quality(IMAGE_QUALITY);
+
+		return urlBuilder.buildUrl();
+	}
+
+	protected void normalizeCrop(final ImageEditInfoAspectBean imageEditInfo,
                                final int newWidth,
                                final int newHeight,
                                final float widthRatio,
                                final float heightRatio) {
+			imageEditInfo.getCrops().values().forEach(crop -> {
+				Rectangle cropRectangle = crop.getCropRectangle();
+				if (cropRectangle != null) {
+					cropRectangle.setHeight(Math.round(cropRectangle.getHeight() * heightRatio));
+					cropRectangle.setWidth(Math.round(cropRectangle.getWidth() * widthRatio));
+					cropRectangle.setX(Math.round(cropRectangle.getX() * widthRatio));
+					cropRectangle.setY(Math.round(cropRectangle.getY() * heightRatio));
 
-		imageEditInfo.getCrops().values().forEach(crop -> {
-			Rectangle cropRectangle = crop.getCropRectangle();
+					crop.setCropRectangle(ImageUtils.cropRect(new java.awt.Dimension(newWidth, newHeight), cropRectangle, imageEditInfo));
+				}
+			});
 
-
-			cropRectangle.setHeight(Math.round(cropRectangle.getHeight() * heightRatio));
-			cropRectangle.setWidth(Math.round(cropRectangle.getWidth() * widthRatio));
-			cropRectangle.setX(Math.round(cropRectangle.getX() * widthRatio));
-			cropRectangle.setY(Math.round(cropRectangle.getY() * heightRatio));
-
-			crop.setCropRectangle(ImageUtils.cropRect(new java.awt.Dimension(newWidth, newHeight), cropRectangle, imageEditInfo));
-
-		});
 		// Image retrieved by the image server already contains the pixelation & rotation - no need to re-apply on the web, so just remove it.
 		imageEditInfo.getPixelations().clear();
 		imageEditInfo.setRotation(0);
@@ -405,7 +411,7 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 										}
 									}
 								}
-							} catch (IOException | CMException e) {
+							} catch (Exception e) {
 								throw new RuntimeException("Failed to send binary to escenic" + imgCr.getContentId());
 							}
 						}
@@ -417,16 +423,18 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 	}
 
 	private String sendImage(InputStream in, String imgExt, String binaryUrl) throws RuntimeException, EscenicResponseException {
-		HttpPost request = new HttpPost(binaryUrl);
-		String mimeType = MimeUtil.getMimeType(imgExt).orElse(null);
-		InputStreamEntity entity = escenicUtils.generateImageEntity(in, mimeType);
-		request.setEntity(entity);
-		request.expectContinue();
-		request.setHeader(escenicUtils.generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
-		request.setHeader(escenicUtils.generateContentTypeHeader(mimeType));
-		LOGGER.info("Sending binary image to escenic");
 
+		HttpPost request = new HttpPost(binaryUrl);
 		try {
+			String mimeType = MimeUtil.getMimeType(imgExt).orElse(null);
+			InputStreamEntity entity = escenicUtils.generateImageEntity(in, mimeType);
+			request.setEntity(entity);
+			request.expectContinue();
+			request.setHeader(escenicUtils.generateAuthenticationHeader(escenicConfig.getUsername(), escenicConfig.getPassword()));
+			request.setHeader(escenicUtils.generateContentTypeHeader(mimeType));
+			LOGGER.info("Sending binary image to escenic");
+
+
 			CloseableHttpResponse result = escenicUtils.getHttpClient().execute(request);
 			int statusCode = escenicUtils.getResponseStatusCode(result);
 			if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_NO_CONTENT) {
