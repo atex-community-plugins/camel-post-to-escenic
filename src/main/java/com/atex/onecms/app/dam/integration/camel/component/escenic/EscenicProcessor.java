@@ -256,5 +256,6 @@ public class EscenicProcessor implements Processor, ApplicationOnAfterInitEvent 
 		EscenicSocialEmbedProcessor.initInstance(escenicUtils);
 		EscenicArticleProcessor.initInstance(escenicUtils);
 		EscenicRelatedContentProcessor.initInstance(escenicUtils);
+		EscenicTagProcessor.initInstance(escenicUtils);
 	}
 }

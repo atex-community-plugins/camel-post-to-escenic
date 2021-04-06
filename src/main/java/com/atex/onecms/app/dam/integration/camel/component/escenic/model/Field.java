@@ -18,6 +18,9 @@ public class Field {
 	private String name;
 
 	//	@XmlElementRef(type=Value.class, name="value")
+	@XmlElement(name="origin", namespace="http://www.vizrt.com/types", type=Origin.class)
+	private Origin origin;
+
 	@XmlElement(name="value" , nillable=false, namespace="http://www.vizrt.com/types", type=Value.class)
 	private Value value;
 
@@ -26,13 +29,6 @@ public class Field {
 
 	@XmlElement(name="list", namespace="http://www.vizrt.com/types", type=com.atex.onecms.app.dam.integration.camel.component.escenic.model.List.class)
 	private com.atex.onecms.app.dam.integration.camel.component.escenic.model.List list;
-
-
-//	@XmlValue(name="value" ,namespace="http://www.vizrt.com/types", type=Value.class)
-//	@XmlElement(name="value" ,namespace="http://www.vizrt.com/types", type=Value.class)
-
-//	@XmlElementRef(name = "div", type = Div.class)
-
 
 	public Field() {
 	}
@@ -51,9 +47,6 @@ public class Field {
 	public void setField(List<Field> field) {
 		this.field = field;
 	}
-
-
-
 
 	public com.atex.onecms.app.dam.integration.camel.component.escenic.model.List getList() {
 		return list;
@@ -82,4 +75,8 @@ public class Field {
 	public boolean fieldNameEqualsIgnoreCase(Field otherField) {
 		return StringUtils.equalsIgnoreCase(this.getName(), otherField.getName());
 	}
+
+	public void setOrigin(Origin origin) {this.origin = origin; }
+
+	public Origin getOrigin() { return origin; }
 }

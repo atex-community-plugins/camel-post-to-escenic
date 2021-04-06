@@ -75,6 +75,18 @@
               <help>com.atex.plugins.camel-post-to-escenic.escenicTopLevelSearchUrl.help</help>
               <param name="inlineHelp">true</param>
           </field>
+          <field input-template="p.TextInput" name="tagListUrl" label="com.atex.plugins.camel-post-to-escenic.tagListUrl">
+              <help>com.atex.plugins.camel-post-to-escenic.tagListUrl.help</help>
+              <param name="inlineHelp">true</param>
+          </field>
+          <field input-template="p.PropertyEditor" name="tagDimensions" label="com.atex.plugins.camel-post-to-escenic.tagDimensions">
+            <help>com.atex.plugins.camel-post-to-escenic.tagDimensions.help</help>
+            <param name="inlineHelp">true</param>
+          </field>
+        <field input-template="p.TextInput" name="tagRelevance" label="com.atex.plugins.camel-post-to-escenic.tagRelevance">
+          <help>com.atex.plugins.camel-post-to-escenic.tagRelevance.help</help>
+          <param name="inlineHelp">true</param>
+        </field>
       </layout>
     </layout>
   </input-template>

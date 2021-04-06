@@ -1155,7 +1155,11 @@ public class EscenicUtils {
 						//just for the image type..
 						if (!isBinaryField(field)) {
 							if (field != null && field.fieldNameEqualsIgnoreCase(newField)) {
+								if(field.getName().equals("com.escenic.tags")){
+									field.setList(newField.getList());
+								}
 								field.setValue(newField.getValue());
+
 								managedByEscenic.set(false);
 							}
 						}
