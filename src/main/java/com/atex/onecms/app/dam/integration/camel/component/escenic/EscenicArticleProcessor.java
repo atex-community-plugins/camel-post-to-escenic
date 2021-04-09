@@ -48,20 +48,19 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
                              OneArticleBean article,
                              List<EscenicContent> escenicContentList,
                              String action,
-                             Websection websection) throws CallbackException {
+                             Websection websection, ContentId contentId) throws CallbackException, EscenicException {
 
 		if (existingEntry != null) {
 			EscenicSocialEmbedProcessor.getInstance().updateIdsForEscenicContent(existingEntry, escenicContentList);
 		}
 
-		return processArticle(article, existingEntry, escenicContentList, websection, action);
+		return processArticle(article, existingEntry, escenicContentList, websection, action, contentId);
 	}
 
     private String processArticle(OneArticleBean article,
                                   Entry existingEntry,
-                                  List<EscenicContent> escenicContentList,
-                                  Websection websection,
-                                  String action) {
+                                  List<EscenicContent> escenicContentList, Websection websection,
+                                  String action, ContentId contentId) throws EscenicException {
 
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(escenicUtils.processStructuredTextField(article, "headline"), "text");
@@ -105,7 +104,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 			}
 		}
 
-		List<Field> fields = generateArticleFields(article, escenicContentList);
+		List<Field> fields = generateArticleFields(article, escenicContentList, contentId);
 		payload.setField(fields);
 		payload.setModel(escenicUtils.getEscenicModel(websection, EscenicArticle.ARTICLE_MODEL_TYPE));
 		content.setPayload(payload);
@@ -143,7 +142,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		return Arrays.asList(state, embargoState);
 	}
 
-	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, List<EscenicContent> escenicContentList) {
+	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, List<EscenicContent> escenicContentList, ContentId contentId) throws EscenicException {
 
 		List<Field> fields = new ArrayList();
 
@@ -158,6 +157,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		fields.add(escenicUtils.createField("summary", escenicUtils.convertStructuredTextToEscenic(escenicUtils.getStructuredText(oneArticleBean, "subHeadline"), null), null, null));
 		fields.add(escenicUtils.createField("subscriptionProtected", escenicUtils.getFieldValueFromPropertyBag(oneArticleBean, "premiumContent"), null, null));
 		fields.add(escenicUtils.createField("allowCUEUpdates", "false", null, null));
+		fields.add(escenicUtils.createField("com.escenic.tags", null, null, EscenicTagProcessor.getInstance().process(contentId)));
 
 		return fields;
 	}

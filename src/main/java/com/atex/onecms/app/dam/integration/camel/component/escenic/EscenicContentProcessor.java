@@ -164,7 +164,7 @@ public class EscenicContentProcessor {
 			}
 
 			article = updateArticleBodyWithOnecmsIds(escenicContentList, contentResult);
-			String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action, websection);
+			String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action, websection, contentId);
 			CloseableHttpResponse response = null;
 			if (isUpdate) {
 				response = escenicUtils.sendUpdatedContentToEscenic(existingEscenicLocation, result);

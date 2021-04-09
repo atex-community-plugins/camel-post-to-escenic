@@ -7,6 +7,10 @@ import com.polopoly.cm.policy.ContentPolicy;
 import com.polopoly.model.DescribesModelType;
 import com.polopoly.cm.ExternalContentId;
 import com.polopoly.cm.client.ContentRead;
+import com.polopoly.siteengine.field.properties.ComponentMapProvider;
+
+import java.util.Collections;
+import java.util.Map;
 
 
 @DescribesModelType
@@ -33,6 +37,9 @@ public class EscenicConfigPolicy extends ContentPolicy{
     protected static final String SECTION_LIST_URL = "sectionListUrl";
 	protected static final String CONTENT_URL = "contentUrl";
 	protected static final String ESCENIC_TOP_LEVEL_SEARCH_URL = "escenicTopLevelSearchUrl";
+	protected static final String TAG_LIST_URL = "tagListUrl";
+	protected static final String TAG_DIMENSIONS = "tagDimensions";
+	protected static final String TAG_RELEVANCE = "tagRelevance";
 
     @Override
     protected void initSelf() {
@@ -121,6 +128,19 @@ public class EscenicConfigPolicy extends ContentPolicy{
 		return ((SingleValuePolicy) getChildPolicy(ESCENIC_TOP_LEVEL_SEARCH_URL)).getValue();
 	}
 
+	public String getTagListUrl() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(TAG_LIST_URL)).getValue();
+    }
+
+    public Map<String, String> getTagDimensions() throws CMException {
+        ComponentMapProvider componentMapPolicy = (ComponentMapProvider) getChildPolicy(TAG_DIMENSIONS);
+        return Collections.unmodifiableMap(componentMapPolicy.getComponentMap());
+    }
+
+    public String getTagRelevance() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(TAG_RELEVANCE)).getValue();
+    }
+
     public EscenicConfig getConfig() throws CMException {
 
         EscenicConfig bean = new EscenicConfig();
@@ -138,6 +158,9 @@ public class EscenicConfigPolicy extends ContentPolicy{
         bean.setSectionListUrl(getSectionListUrl());
         bean.setContentUrl(getContentUrl());
         bean.setEscenicTopLevelSearchUrl(getEscenicTopLevelSearchUrl());
+        bean.setTagListUrl(getTagListUrl());
+        bean.setTagDimensions(getTagDimensions());
+        bean.setTagRelevance(getTagRelevance());
         return bean;
     }
 }

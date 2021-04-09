@@ -13,3 +13,9 @@ component:cropsMapping:value:2x1\:wide,3x2\:landscape,1x1\:square,2x3\:portrait,
 component:sectionListUsername:value:
 component:sectionListPassword:value:
 component:sectionListUrl:value:
+component:tagListUrl:value:http\://editorial-test.inm.bluebillywig.com\:8081/webservice/escenic/classification/tag/tag\:
+
+component:tagDimensions:dimension.Topics:topic@mhi.ie,2021
+component:tagDimensions:dimension.Regions:region@mhi.ie,2021
+
+component:tagDefaultRelevance:value:1

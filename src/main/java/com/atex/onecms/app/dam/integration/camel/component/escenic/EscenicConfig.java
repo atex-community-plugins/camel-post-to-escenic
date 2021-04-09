@@ -1,5 +1,7 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.util.Map;
+
 /**
  *
  * @author jakub
@@ -19,6 +21,9 @@ public class EscenicConfig {
 	private String sectionListUrl;
 	private String escenicTopLevelSearchUrl;
 	private int timeout = 60*1000;
+	private String tagListUrl;
+	private Map<String, String> tagDimensions;
+	private String tagRelevance;
 
 	public String getEscenicTopLevelSearchUrl() {
 		return escenicTopLevelSearchUrl;
@@ -27,8 +32,6 @@ public class EscenicConfig {
 	public void setEscenicTopLevelSearchUrl(String escenicTopLevelSearchUrl) {
 		this.escenicTopLevelSearchUrl = escenicTopLevelSearchUrl;
 	}
-
-
 
 	public String getContentUrl() {
 		return contentUrl;
@@ -142,9 +145,21 @@ public class EscenicConfig {
 		this.modelUrl = modelUrl;
 	}
 
+	public Map<String, String> getTagDimensions() { return this.tagDimensions; }
+
+	public void setTagDimensions(Map<String, String> tagDimensions) { this.tagDimensions = tagDimensions; }
+
+	public String getTagListUrl() {return this.tagListUrl;}
+
+	public void setTagListUrl(String tagListUrl) {this.tagListUrl = tagListUrl;}
+	public String getTagRelevance() {return this.tagRelevance; }
+
+	public void setTagRelevance(String tagRelevance) {this.tagRelevance = tagRelevance; }
+
 	public int getTimeout() {return timeout;}
 
-	public void setTimeout(int timeout) {this.timeout = timeout;}
+	public void setTimeout(int timeout) {this.timeout = timeout; }
+
 }
 
 
