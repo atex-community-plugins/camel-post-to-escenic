@@ -48,7 +48,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
                              OneArticleBean article,
                              List<EscenicContent> escenicContentList,
                              String action,
-                             Websection websection, ContentId contentId) throws CallbackException {
+                             Websection websection, ContentId contentId) throws CallbackException, EscenicException {
 
 		if (existingEntry != null) {
 			EscenicSocialEmbedProcessor.getInstance().updateIdsForEscenicContent(existingEntry, escenicContentList);
@@ -59,10 +59,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 
     private String processArticle(OneArticleBean article,
                                   Entry existingEntry,
-                                  List<EscenicContent> escenicContentList,
-                                  Websection websection,
-                                  String action,
-								  ContentId contentId) {
+                                  List<EscenicContent> escenicContentList, Websection websection,
+                                  String action, ContentId contentId) throws EscenicException {
 
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(escenicUtils.processStructuredTextField(article, "headline"), "text");
@@ -144,7 +142,7 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		return Arrays.asList(state, embargoState);
 	}
 
-	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, List<EscenicContent> escenicContentList, ContentId contentId) {
+	protected List<Field> generateArticleFields(OneArticleBean oneArticleBean, List<EscenicContent> escenicContentList, ContentId contentId) throws EscenicException {
 
 		List<Field> fields = new ArrayList();
 

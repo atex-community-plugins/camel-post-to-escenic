@@ -1159,7 +1159,6 @@ public class EscenicUtils {
 									field.setList(newField.getList());
 								}
 								field.setValue(newField.getValue());
-
 								managedByEscenic.set(false);
 							}
 						}

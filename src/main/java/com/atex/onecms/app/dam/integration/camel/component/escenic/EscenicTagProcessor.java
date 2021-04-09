@@ -1,5 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import com.atex.onecms.app.dam.integration.camel.component.escenic.exception.EscenicException;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Field;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Origin;
 import com.atex.onecms.app.dam.integration.camel.component.escenic.model.Payload;
@@ -9,10 +10,10 @@ import com.atex.onecms.content.metadata.MetadataInfo;
 import com.polopoly.metadata.Attribute;
 import com.polopoly.metadata.Dimension;
 import com.polopoly.metadata.Entity;
-import com.polopoly.metadata.Metadata;
+import org.apache.commons.lang.ObjectUtils;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -24,7 +25,6 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
     protected static final Logger LOGGER = Logger.getLogger(EscenicTagProcessor.class.getName());
     private static final Subject SYSTEM_SUBJECT = new Subject("98", (String)null);
     private static final String ESCENIC_ID_REFERENCE = "escenicID";
-    private Map<String, String> tagDimensions;
 
 
     public EscenicTagProcessor(EscenicUtils escenicUtils) {
@@ -44,16 +44,20 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
         }
     }
 
-
-    protected com.atex.onecms.app.dam.integration.camel.component.escenic.model.List process(ContentId contentId) {
-        LOGGER.info("Processing Tags for content id: " + IdUtil.toIdString(contentId));
+    @Nullable
+    protected com.atex.onecms.app.dam.integration.camel.component.escenic.model.List process(ContentId contentId) throws EscenicException {
+        LOGGER.fine("Processing Tags for content id: " + IdUtil.toIdString(contentId));
         com.atex.onecms.app.dam.integration.camel.component.escenic.model.List modelList = new com.atex.onecms.app.dam.integration.camel.component.escenic.model.List();
-        modelList.setPayloadList(processTags(contentId));
+        try {
+            modelList.setPayloadList(processTags(contentId));
+        } catch (Exception e) {
+            throw new EscenicException("Failed to process tags for content id: " + IdUtil.toIdString(contentId), e);
+        }
         return modelList;
     }
 
-    private void getDimensionMap () {
-        tagDimensions = escenicConfig.getTagDimensions();
+    private Map<String, String> getDimensionMap () {
+        return escenicConfig.getTagDimensions();
     }
 
 
@@ -63,23 +67,27 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
         ContentVersionId contentVersionId = contentManager.resolve(contentId, Subject.NOBODY_CALLER);
         ContentResult<Object> cr = contentManager.get(contentVersionId, null, Object.class, null, SYSTEM_SUBJECT);
         final Aspect<MetadataInfo> metadataInfo = cr.getContent().getAspect(MetadataInfo.ASPECT_NAME);
+        List<Payload> payloadList = new ArrayList<>();
         if (metadataInfo == null) {
             LOGGER.log(Level.SEVERE, "Failed to retrieve metadata aspect for : " + contentId);
+            return payloadList;
+        } else {
+            MetadataInfo metadata = metadataInfo.getData();
+            if(metadata == null) {
+                LOGGER.log(Level.SEVERE, "Metadata is null for : " + contentId);
+                return payloadList;
+            } else {
+                return buildTags(metadata, payloadList);
+            }
         }
 
-        MetadataInfo metadata = metadataInfo.getData();
-        if(metadata == null) {
-            LOGGER.log(Level.SEVERE, "Metadata is null for : " + contentId);
-            return null;
-        } else {
-            return buildTags(metadata);
-        }
+
     }
 
-    private List<Payload> buildTags(MetadataInfo metadata) {
-        List<Payload> payloadList = new ArrayList<>();
-        if(tagDimensions != null && !tagDimensions.isEmpty()) {
-            for (String key: tagDimensions.keySet()) {
+    private List<Payload> buildTags(MetadataInfo metadata, List<Payload> payloadList) {
+        Map<String, String> dimensionMap = getDimensionMap();
+        if(dimensionMap != null && !dimensionMap.isEmpty()) {
+            for (String key: dimensionMap.keySet()) {
                 if (key != null) {
                     Dimension dimension = metadata.getMetadata().getDimensionById(key);
                     if(dimension != null) {
@@ -91,7 +99,7 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
                         }
                     }
                 } else {
-                    LOGGER.log(Level.SEVERE, "No dimensions in config");
+                    LOGGER.log(Level.SEVERE, "Key in dimension mapping is null ");
                 }
             }
         }
@@ -122,8 +130,9 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
     };
 
     private String getDimensionReference(String dimensionId) {
-        if (tagDimensions != null) return tagDimensions.get(dimensionId);
-        return null;
+        Map<String, String> dimensionMap = getDimensionMap();
+        if (dimensionMap != null) return dimensionMap.get(dimensionId);
+        return "";
     }
 
     private String getEscenicTagIdFromEntity(Entity entity) {
