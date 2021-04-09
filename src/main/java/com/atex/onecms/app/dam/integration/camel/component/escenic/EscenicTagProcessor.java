@@ -10,6 +10,7 @@ import com.atex.onecms.content.metadata.MetadataInfo;
 import com.polopoly.metadata.Attribute;
 import com.polopoly.metadata.Dimension;
 import com.polopoly.metadata.Entity;
+import com.polopoly.metadata.Metadata;
 import org.apache.commons.lang.ObjectUtils;
 
 import javax.annotation.Nullable;
