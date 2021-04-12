@@ -24,6 +24,7 @@ public class EscenicConfig {
 	private String tagListUrl;
 	private Map<String, String> tagDimensions;
 	private String tagRelevance;
+	private String tagEscenicReferenceAttribute;
 
 	public String getEscenicTopLevelSearchUrl() {
 		return escenicTopLevelSearchUrl;
@@ -159,6 +160,10 @@ public class EscenicConfig {
 	public int getTimeout() {return timeout;}
 
 	public void setTimeout(int timeout) {this.timeout = timeout; }
+
+	public String getTagEscenicReferenceAttribute() {return this.tagEscenicReferenceAttribute;}
+
+	public void setTagEscenicReferenceAttribute(String tagEscenicReferenceAttribute) {this.tagEscenicReferenceAttribute = tagEscenicReferenceAttribute; }
 
 }
 

@@ -40,6 +40,7 @@ public class EscenicConfigPolicy extends ContentPolicy{
 	protected static final String TAG_LIST_URL = "tagListUrl";
 	protected static final String TAG_DIMENSIONS = "tagDimensions";
 	protected static final String TAG_RELEVANCE = "tagRelevance";
+	protected static final String TAG_ESCENIC_ATTRIBUTE_REFERENCE = "tagEscenicReferenceAttribute";
 
     @Override
     protected void initSelf() {
@@ -141,6 +142,10 @@ public class EscenicConfigPolicy extends ContentPolicy{
         return ((SingleValuePolicy) getChildPolicy(TAG_RELEVANCE)).getValue();
     }
 
+    public String getTagEscenicReferenceAttribute() throws CMException {
+        return ((SingleValuePolicy) getChildPolicy(TAG_ESCENIC_ATTRIBUTE_REFERENCE)).getValue();
+    }
+
     public EscenicConfig getConfig() throws CMException {
 
         EscenicConfig bean = new EscenicConfig();
@@ -161,6 +166,7 @@ public class EscenicConfigPolicy extends ContentPolicy{
         bean.setTagListUrl(getTagListUrl());
         bean.setTagDimensions(getTagDimensions());
         bean.setTagRelevance(getTagRelevance());
+        bean.setTagEscenicReferenceAttribute(getTagEscenicReferenceAttribute());
         return bean;
     }
 }

@@ -19,3 +19,4 @@ component:tagDimensions:dimension.Topics:topic@mhi.ie,2021
 component:tagDimensions:dimension.Regions:region@mhi.ie,2021
 
 component:tagDefaultRelevance:value:1
+component:tagEscenicReferenceAttribute:value:escenicID

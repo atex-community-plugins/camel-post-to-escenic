@@ -143,7 +143,7 @@ public class EscenicTagProcessor extends EscenicContentProcessor {
             escenicId = entity.getName();
         } else {
             for(Attribute attribute : attributeList) {
-                if (attribute.getName().equals(ESCENIC_ID_REFERENCE)){
+                if (attribute.getName().equals(escenicConfig.getTagEscenicReferenceAttribute())){
                     escenicId = attribute.getValue();
                 } else {
                     escenicId = entity.getName();
