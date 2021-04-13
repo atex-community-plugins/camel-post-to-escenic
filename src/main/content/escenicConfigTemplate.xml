@@ -87,6 +87,10 @@
           <help>com.atex.plugins.camel-post-to-escenic.tagRelevance.help</help>
           <param name="inlineHelp">true</param>
         </field>
+        <field input-template="p.TextInput" name="tagEscenicReferenceAttribute" label="com.atex.plugins.camel-post-to-escenic.tagEscenicReferenceAttribute">
+          <help>com.atex.plugins.camel-post-to-escenic.tagEscenicReferenceAttribute.help</help>
+          <param name="inlineHelp">true</param>
+        </field>
       </layout>
     </layout>
   </input-template>
