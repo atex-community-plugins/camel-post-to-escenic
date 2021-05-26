@@ -134,41 +134,28 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		return escenicUtils.serializeXml(entry);
 	}
 
-	private Publication generatePublication(OneArticleBean article, Websection websection, ContentResult contentResult) throws CMException {
+	private Publication generatePublication(OneArticleBean article, Websection websection, ContentResult contentResult) throws CMException, EscenicException {
 		Publication publication = new Publication();
 		publication.setTitle(websection.getPublicationName());
 		publication.setHref(escenicConfig.getModelUrl() + websection.getPublicationName());
 		List<Link> sectionLinks = new ArrayList<>();
 
-		if (contentResult != null && contentResult.getStatus().isSuccess()) {
-			InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) contentResult.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
-			if (insertionInfoAspectBean != null) {
-				ContentId securityParentId = insertionInfoAspectBean.getSecurityParentId();
-				if(securityParentId != null ) {
-					SitePolicy sitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(securityParentId));
-					if(sitePolicy != null) {
-						String escenicId = null;
-						String publicationName = null;
-						escenicId = sitePolicy.getComponent("escenicId", "value");
-						publicationName = sitePolicy.getComponent("publicationKey", "value");
-						sectionLinks.add(generateHomeSection(escenicId, publicationName));
-					}
-				}
-				List<ContentId> associatedSitesIds = insertionInfoAspectBean.getAssociatedSites();
-				if (associatedSitesIds != null && !associatedSitesIds.isEmpty()) {
-					for (ContentId associatedSitesId : associatedSitesIds) {
-						SitePolicy sitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(associatedSitesId));
-						if (sitePolicy != null) {
-							String escenicId = null;
-							String publicationName = null;
-							escenicId = sitePolicy.getComponent("escenicId", "value");
-							publicationName = sitePolicy.getComponent("publicationKey", "value");
-							sectionLinks.add(generateSection(escenicId, publicationName));
-						}
-					}
+		Websection homeSection = extractSectionId(contentResult);
+		sectionLinks.add(generateHomeSection(homeSection.getEscenicId(), homeSection.getPublicationName()));
+
+
+		InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) contentResult.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
+		List<ContentId> associatedSitesIds = insertionInfoAspectBean.getAssociatedSites();
+		if (associatedSitesIds != null && !associatedSitesIds.isEmpty()) {
+			for (ContentId associatedSitesId : associatedSitesIds) {
+				SitePolicy associatedSitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(associatedSitesId));
+				if (associatedSitePolicy != null) {
+					Websection associatedSection = buildWebsection(associatedSitePolicy, associatedSitesId);
+					sectionLinks.add(generateSection(associatedSection.getEscenicId(), associatedSection.getPublicationName()));
 				}
 			}
 		}
+
 		publication.setLink(sectionLinks);
 		return publication;
 	}
