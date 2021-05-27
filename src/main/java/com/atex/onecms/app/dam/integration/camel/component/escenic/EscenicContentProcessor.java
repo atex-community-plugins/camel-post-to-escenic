@@ -113,7 +113,7 @@ public class EscenicContentProcessor {
 		this.escenicConfig = escenicConfig;
 	}
 
-	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException {
+	public void process(ContentId contentId, ContentResult contentResult, String action) throws EscenicException, JSONException, CMException {
 		LOGGER.info("Processing content id: " + IdUtil.toIdString(contentId));
 		Object contentBean = escenicUtils.extractContentBean(contentResult);
 		if (contentBean == null) {
@@ -164,7 +164,7 @@ public class EscenicContentProcessor {
 			}
 
 			article = updateArticleBodyWithOnecmsIds(escenicContentList, contentResult);
-			String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action, websection, contentId);
+			String result = EscenicArticleProcessor.getInstance().process(entry, article, escenicContentList, action, websection, contentId, contentResult);
 			CloseableHttpResponse response = null;
 			if (isUpdate) {
 				response = escenicUtils.sendUpdatedContentToEscenic(existingEscenicLocation, result);
@@ -184,7 +184,7 @@ public class EscenicContentProcessor {
 		}
 	}
 
-	private Websection extractSectionId(ContentResult cr) throws FailedToProcessSectionIdException {
+	protected Websection extractSectionId(ContentResult cr) throws FailedToProcessSectionIdException {
 		if (cr != null && cr.getStatus().isSuccess()) {
 			InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) cr.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
 			if (insertionInfoAspectBean != null) {
@@ -193,16 +193,7 @@ public class EscenicContentProcessor {
 					try {
 						SitePolicy sitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(securityParentId));
 						if (sitePolicy != null) {
-							String escenicId = null;
-							String publicationName = null;
-                            escenicId = sitePolicy.getComponent("escenicId", "value");
-                            publicationName = sitePolicy.getComponent("publicationKey", "value");
-
-                            if (escenicId == null || publicationName == null) {
-                                throw new FailedToProcessSectionIdException("Failed to find site information (site id or publication name). Unable to proceed.");
-                            }
-
-							return new Websection(escenicId, publicationName, securityParentId);
+                            return buildWebsection(sitePolicy, securityParentId);
 						}
 					} catch (CMException e) {
 						throw new FailedToProcessSectionIdException("Problem occurred when retrieving escenic section id for site id : " + securityParentId);
@@ -214,6 +205,20 @@ public class EscenicContentProcessor {
 		}
 
 		throw new FailedToProcessSectionIdException("Unable to retrieve escenic section id for content: " + cr.getContentId());
+	}
+
+	protected Websection buildWebsection(SitePolicy sitePolicy, ContentId contentId) throws FailedToProcessSectionIdException, CMException {
+		String escenicId = null;
+		String publicationName = null;
+		escenicId = sitePolicy.getComponent("escenicId", "value");
+		publicationName = sitePolicy.getComponent("publicationKey", "value");
+
+		if (escenicId == null || publicationName == null) {
+			throw new FailedToProcessSectionIdException("Failed to find site information (site id or publication name). Unable to proceed.");
+		}
+
+		return new Websection(escenicId, publicationName, contentId);
+
 	}
 
     protected EngagementDesc evaluateResponse(ContentId contentId,

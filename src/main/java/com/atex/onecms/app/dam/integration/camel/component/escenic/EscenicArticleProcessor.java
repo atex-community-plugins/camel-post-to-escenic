@@ -10,8 +10,11 @@ import com.atex.onecms.app.dam.standard.aspects.*;
 import com.atex.onecms.content.ContentId;
 import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.IdUtil;
+import com.atex.onecms.content.InsertionInfoAspectBean;
 import com.atex.onecms.content.callback.CallbackException;
 import com.polopoly.cm.client.CMException;
+import com.polopoly.siteengine.structure.SitePolicy;
+import net.sf.saxon.om.One;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 
@@ -48,19 +51,19 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
                              OneArticleBean article,
                              List<EscenicContent> escenicContentList,
                              String action,
-                             Websection websection, ContentId contentId) throws CallbackException, EscenicException {
+                             Websection websection, ContentId contentId, ContentResult contentResult) throws CallbackException, EscenicException, CMException {
 
 		if (existingEntry != null) {
 			EscenicSocialEmbedProcessor.getInstance().updateIdsForEscenicContent(existingEntry, escenicContentList);
 		}
 
-		return processArticle(article, existingEntry, escenicContentList, websection, action, contentId);
+		return processArticle(article, existingEntry, escenicContentList, websection, action, contentId, contentResult);
 	}
 
     private String processArticle(OneArticleBean article,
                                   Entry existingEntry,
                                   List<EscenicContent> escenicContentList, Websection websection,
-                                  String action, ContentId contentId) throws EscenicException {
+                                  String action, ContentId contentId, ContentResult contentResult) throws EscenicException, CMException {
 
 		Entry entry = new Entry();
 		Title title = escenicUtils.createTitle(escenicUtils.processStructuredTextField(article, "headline"), "text");
@@ -70,6 +73,8 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		Payload payload = new Payload();
 		Content content = new Content();
 		Control control = new Control();
+		Publication publication = generatePublication(article, websection, contentResult);
+		entry.setPublication(publication);
 
 		if (StringUtils.equalsIgnoreCase(action, EscenicProcessor.UNPUBLISH_ACTION)) {
 			control.setDraft("yes");
@@ -122,10 +127,57 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		entry.setLink(links);
 
 		if (existingEntry != null) {
+			LOGGER.info("entry is" + entry);
 			entry = escenicUtils.processExitingContent(existingEntry, entry, true);
 		}
 
 		return escenicUtils.serializeXml(entry);
+	}
+
+	private Publication generatePublication(OneArticleBean article, Websection websection, ContentResult contentResult) throws CMException, EscenicException {
+		Publication publication = new Publication();
+		publication.setTitle(websection.getPublicationName());
+		publication.setHref(escenicConfig.getModelUrl() + websection.getPublicationName());
+		List<Link> sectionLinks = new ArrayList<>();
+
+		Websection homeSection = extractSectionId(contentResult);
+		sectionLinks.add(generateHomeSection(homeSection.getEscenicId(), homeSection.getPublicationName()));
+
+
+		InsertionInfoAspectBean insertionInfoAspectBean = (InsertionInfoAspectBean) contentResult.getContent().getAspectData(InsertionInfoAspectBean.ASPECT_NAME);
+		List<ContentId> associatedSitesIds = insertionInfoAspectBean.getAssociatedSites();
+		if (associatedSitesIds != null && !associatedSitesIds.isEmpty()) {
+			for (ContentId associatedSitesId : associatedSitesIds) {
+				SitePolicy associatedSitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(associatedSitesId));
+				if (associatedSitePolicy != null) {
+					Websection associatedSection = buildWebsection(associatedSitePolicy, associatedSitesId);
+					sectionLinks.add(generateSection(associatedSection.getEscenicId(), associatedSection.getPublicationName()));
+				}
+			}
+		}
+
+		publication.setLink(sectionLinks);
+		return publication;
+	}
+
+
+
+	private Link generateSection(String escenicId, String publicationName) {
+		Link link = new Link();
+		link.setHref(escenicConfig.getApiUrl() + "/webservice/escenic/section/" + escenicId);
+		link.setType("application/atom+xml; type=entry");
+		link.setTitle(publicationName);
+		link.setRel("http://www.vizrt.com/types/relation/section");
+		return link;
+	}
+
+	private Link generateHomeSection(String escenicId, String publicationName){
+		Link link = new Link();
+		link.setRel("http://www.vizrt.com/types/relation/home-section");
+		link.setType("application/atom+xml; type=entry");
+		link.setHref(escenicConfig.getApiUrl() + "/webservice/escenic/section/" + escenicId);
+		link.setTitle(publicationName);
+		return link;
 	}
 
 	private List<State> setArticleState(OneArticleBean article, Entry existingEntry, String stateText) {
@@ -158,7 +210,6 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 		fields.add(escenicUtils.createField("subscriptionProtected", escenicUtils.getFieldValueFromPropertyBag(oneArticleBean, "premiumContent"), null, null));
 		fields.add(escenicUtils.createField("allowCUEUpdates", "false", null, null));
 		fields.add(escenicUtils.createField("com.escenic.tags", null, null, EscenicTagProcessor.getInstance().process(contentId)));
-
 		return fields;
 	}
 
