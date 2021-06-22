@@ -151,7 +151,9 @@ public class EscenicArticleProcessor extends EscenicContentProcessor {
 				SitePolicy associatedSitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(associatedSitesId));
 				if (associatedSitePolicy != null) {
 					Websection associatedSection = buildWebsection(associatedSitePolicy, associatedSitesId);
-					sectionLinks.add(generateSection(associatedSection.getEscenicId(), associatedSection.getPublicationName()));
+					if(associatedSection != null) {
+						sectionLinks.add(generateSection(associatedSection.getEscenicId(), associatedSection.getPublicationName()));
+					}
 				}
 			}
 		}

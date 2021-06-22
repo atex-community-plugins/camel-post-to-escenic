@@ -214,10 +214,11 @@ public class EscenicContentProcessor {
 		publicationName = sitePolicy.getComponent("publicationKey", "value");
 
 		if (escenicId == null || publicationName == null) {
-			throw new FailedToProcessSectionIdException("Failed to find site information (site id or publication name). Unable to proceed.");
+			LOGGER.finest("Failed to find site information (site id or publication name).");
+			return null;
+		} else {
+			return new Websection(escenicId, publicationName, contentId);
 		}
-
-		return new Websection(escenicId, publicationName, contentId);
 
 	}
 
