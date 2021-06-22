@@ -1,5 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.awt.*;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ import com.atex.onecms.content.aspects.Aspect;
 import com.atex.onecms.content.repository.ContentModifiedException;
 import com.atex.onecms.image.ImageEditInfoAspectBean;
 
+import com.atex.onecms.image.ImageInfoAspectBean;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -390,15 +392,19 @@ public class EscenicContentProcessor {
 		if (cr != null && cr.getContent() != null) {
 			Collection<Aspect> contentResultAspects = cr.getContent().getAspects();
 			for (Aspect aspect : contentResultAspects) {
-				if (!StringUtils.equalsIgnoreCase(aspect.getName(), ImageEditInfoAspectBean.ASPECT_NAME)) {
+				if (!StringUtils.equalsIgnoreCase(aspect.getName(), ImageEditInfoAspectBean.ASPECT_NAME) && !StringUtils.equalsIgnoreCase(aspect.getName(), ImageInfoAspectBean.ASPECT_NAME)) {
 					aspects.add(aspect);
 				}
 			}
 
 			EngagementAspect eng = (EngagementAspect) cw.getAspect(EngagementAspect.ASPECT_NAME);
+			ImageInfoAspectBean imageInfoAspectBean = (ImageInfoAspectBean) cw.getAspect(ImageInfoAspectBean.ASPECT_NAME);
 			ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) cw.getAspect(ImageEditInfoAspectBean.ASPECT_NAME);
 			if (imageEditInfoAspectBean != null) {
 				aspects.add(new Aspect(ImageEditInfoAspectBean.ASPECT_NAME, imageEditInfoAspectBean));
+			}
+			if (imageInfoAspectBean != null) {
+				aspects.add(new Aspect(ImageInfoAspectBean.ASPECT_NAME, imageInfoAspectBean));
 			}
 			if (eng != null) {
 				aspects.add(new Aspect(EngagementAspect.ASPECT_NAME, eng));
