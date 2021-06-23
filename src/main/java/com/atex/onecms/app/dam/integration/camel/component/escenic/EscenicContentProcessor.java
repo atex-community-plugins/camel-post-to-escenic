@@ -193,7 +193,7 @@ public class EscenicContentProcessor {
 					try {
 						SitePolicy sitePolicy = (SitePolicy) cmServer.getPolicy(IdUtil.toPolicyContentId(securityParentId));
 						if (sitePolicy != null) {
-                            return buildWebsection(sitePolicy, securityParentId);
+                            return buildWebsection(sitePolicy, securityParentId, false);
 						}
 					} catch (CMException e) {
 						throw new FailedToProcessSectionIdException("Problem occurred when retrieving escenic section id for site id : " + securityParentId);
@@ -207,20 +207,24 @@ public class EscenicContentProcessor {
 		throw new FailedToProcessSectionIdException("Unable to retrieve escenic section id for content: " + cr.getContentId());
 	}
 
-	protected Websection buildWebsection(SitePolicy sitePolicy, ContentId contentId) throws FailedToProcessSectionIdException, CMException {
+	protected Websection buildWebsection(SitePolicy sitePolicy, ContentId contentId, Boolean optional) throws FailedToProcessSectionIdException, CMException {
 		String escenicId = null;
 		String publicationName = null;
 		escenicId = sitePolicy.getComponent("escenicId", "value");
 		publicationName = sitePolicy.getComponent("publicationKey", "value");
 
-		if (escenicId == null || publicationName == null) {
+		if ((escenicId == null || publicationName == null ) && optional) {
 			LOGGER.finest("Failed to find site information (site id or publication name).");
 			return null;
-		} else {
+		} else if ((escenicId == null || publicationName == null) && !optional) {
+			throw new FailedToProcessSectionIdException("Failed to find site information (site id or publication name). Unable to proceed.");
+		} else{
 			return new Websection(escenicId, publicationName, contentId);
 		}
 
 	}
+
+
 
     protected EngagementDesc evaluateResponse(ContentId contentId,
                                               String existingEscenicLocation,
