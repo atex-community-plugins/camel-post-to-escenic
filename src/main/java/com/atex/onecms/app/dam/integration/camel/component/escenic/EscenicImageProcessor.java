@@ -1,5 +1,6 @@
 package com.atex.onecms.app.dam.integration.camel.component.escenic;
 
+import java.awt.*;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,9 +36,7 @@ import com.atex.onecms.content.ContentResult;
 import com.atex.onecms.content.FilesAspectBean;
 import com.atex.onecms.content.Subject;
 import com.atex.onecms.content.files.FileService;
-import com.atex.onecms.image.CropInfo;
-import com.atex.onecms.image.ImageEditInfoAspectBean;
-import com.atex.onecms.image.ImageInfoAspectBean;
+import com.atex.onecms.image.*;
 import com.atex.onecms.image.Rectangle;
 import com.atex.onecms.ws.image.ImageServiceConfiguration;
 import com.atex.onecms.ws.image.ImageServiceConfigurationProvider;
@@ -203,6 +202,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 				}
 
 				ImageEditInfoAspectBean imageEditInfoAspectBean = (ImageEditInfoAspectBean) imgCr.getContent().getAspectData(ImageEditInfoAspectBean.ASPECT_NAME);
+				ImageInfoAspectBean imageInfoAspectBean = (ImageInfoAspectBean) imgCr.getContent().getAspectData(ImageInfoAspectBean.ASPECT_NAME);
+				if (imageEditInfoAspectBean.getCrops().isEmpty() || imageEditInfoAspectBean.getCrops() == null){
+					imageEditInfoAspectBean.setCrops(createDefaultCrops(imageEditInfoAspectBean, imageInfoAspectBean));
+				}
 				String binaryLocation = sendBinaryImage(imgCr, binaryUrl, existingImgEntry, imageEditInfoAspectBean);
 				Entry entry = constructAtomEntryForBinaryImage(oneImageBean, imgCr.getContent(), binaryLocation, websection, imageEditInfoAspectBean);
 				if (existingImgEntry != null) {
@@ -299,6 +302,10 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 			final float heightRatio = (float) newHeight / dimensions.getHeight();
 
 			if (imageEditInfoAspectBean != null) {
+				Map<String, CropInfo> imageCrops = imageEditInfoAspectBean.getCrops();
+				if (imageCrops == null || imageCrops.isEmpty()){
+					imageEditInfoAspectBean.setCrops(createDefaultCrops(imageEditInfoAspectBean, imageInfoAspectBean));
+				}
 				normalizeCrop(imageEditInfoAspectBean, newWidth, newHeight, widthRatio, heightRatio);
 			}
 
@@ -536,6 +543,65 @@ public class EscenicImageProcessor extends EscenicSmartEmbedProcessor {
 		List<Link> links = escenicUtils.generateLinks(escenicImage, websection);
 		escenicImage.setLinks(links);
 		escenicImage.setNoUseWeb(oneImageBean.isNoUseWeb());
+	}
+
+	private boolean fillsHeight (int containerWidth, int containerHeight, int formatWidth, int formatHeight) {
+		return containerWidth * formatHeight >= formatWidth * containerHeight;
+	}
+
+	private Map<String, CropInfo> createDefaultCrops(ImageEditInfoAspectBean imageEditInfo, ImageInfoAspectBean imageInfoAspectBean ){
+		Map<String, CropInfo> imageCrops = imageEditInfo.getCrops();
+
+		//Default is not flipped not rotated and not sideways
+		int rotation = imageEditInfo.getRotation();
+		boolean isSideways = rotation == 90 || rotation == 270;
+
+		int containerWidth;
+		int containerHeight;
+		if (isSideways) {
+			containerWidth = imageInfoAspectBean.getHeight();
+			containerHeight = imageInfoAspectBean.getWidth();
+		} else {
+			containerWidth = imageInfoAspectBean.getWidth();
+			containerHeight = imageInfoAspectBean.getHeight();
+		}
+
+		Dimension imageDimensions = new Dimension(imageInfoAspectBean.getWidth(), imageInfoAspectBean.getHeight());
+
+		for (Map.Entry<String, String> entry : this.cropsMapping.entrySet()) {
+			int formatWidth;
+			int formatHeight;
+			if (entry.getKey().equalsIgnoreCase( "default")){
+				formatWidth = imageInfoAspectBean.getWidth();
+				formatHeight = imageInfoAspectBean.getHeight();
+			} else {
+				String[] format = entry.getKey().split("x");
+				try {
+					formatWidth = Integer.parseInt(format[0]);
+					formatHeight = Integer.parseInt(format[1]);
+				} catch (NumberFormatException e) {
+					formatWidth = imageInfoAspectBean.getWidth();
+					formatHeight = imageInfoAspectBean.getHeight();
+				}
+			}
+			CropInfo cropInfo = new CropInfo();
+			Rectangle cropRectangle = new Rectangle();
+			if (fillsHeight(containerWidth, containerHeight, formatWidth, formatHeight)){
+				cropRectangle.setWidth(formatWidth * containerHeight / formatHeight);
+				cropRectangle.setHeight(containerHeight);
+				cropRectangle.setY(0);
+				cropRectangle.setX((containerWidth - cropRectangle.getWidth())/2);
+			} else {
+				cropRectangle.setWidth(containerWidth);
+				cropRectangle.setHeight(formatHeight * containerWidth / formatWidth);
+				cropRectangle.setX(0);
+				cropRectangle.setY((containerHeight - cropRectangle.getHeight())/4);
+			}
+			cropRectangle = ImageUtils.cropRect(imageDimensions, cropRectangle, imageEditInfo);
+			cropInfo.setCropRectangle(cropRectangle);
+			imageCrops.put(entry.getKey(), cropInfo);
+		}
+		return imageCrops;
 	}
 
 	private JsonObject extractCrops(Content content, ImageEditInfoAspectBean imageEditInfoAspectBean) throws RuntimeException {
